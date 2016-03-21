@@ -71,4 +71,4 @@ if __name__ == "__main__":
     params = init_eta, init_phi, init_psi
 
     # optimize
-    params = optimize(params, 0., 1000, num_minibatches)
+    params = optimize(params, 0., num_epochs=1000, seq_len=20, num_samples=1)

@@ -11,11 +11,6 @@ from svae.viz import plot_random_examples, plot_samples
 from svae.models.vanilla_vae import run_inference
 from data import mnist
 
-# TODO minibatches (add minibatch size to make_gradfun? maybe it should sample
-# minibatches internally)
-# TODO should i worry about 'shoelace ends'? where?
-# TODO compare speed to my theano implementation
-
 np.seterr(invalid='raise', over='raise', divide='raise')
 
 

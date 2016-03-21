@@ -6,6 +6,7 @@ import gzip
 import matplotlib.pyplot as plt
 from scipy.ndimage import zoom
 from scipy.ndimage.filters import gaussian_filter
+from scipy.signal import sawtooth
 from time import time
 
 from svae.svae import make_gradfun
@@ -25,8 +26,22 @@ from svae.lds.lds_inference import cython_natural_lds_sample as natural_lds_samp
 zero_after_prefix = lambda prefix: make_unop(lambda x: np.concatenate(
     (x[:prefix], np.zeros_like(x[prefix:]))), tuple)
 
-from make_dot_data import make_dot_data
 
+### data generation
+
+triangle = lambda t: sawtooth(np.pi*t, width=0.5)
+make_dot_trajectory = lambda x0, v: lambda t: triangle(v*(t + (1+x0)/2.))
+make_renderer = lambda grid, sigma: lambda x: np.exp(-1./2 * (x - grid)**2/sigma**2)
+
+def make_dot_data(image_width, T, num_steps, x0=0.0, v=0.5, render_sigma=0.2, noise_sigma=0.1):
+    grid = np.linspace(-1, 1, image_width, endpoint=True)
+    render = make_renderer(grid, render_sigma)
+    x = make_dot_trajectory(x0, v)
+    images = np.vstack([render(x(t)) for t in np.linspace(0, T, num_steps)])
+    return images + noise_sigma * npr.randn(*images.shape)
+
+
+### plotting
 
 def generate_samples(params, data, prefix):
     _, phi, _ = params
@@ -70,7 +85,7 @@ if __name__ == "__main__":
     np.set_printoptions(precision=2)
 
     # latent space dimension
-    n = 6
+    n = 10
 
     # set up prior
     prior_natparam = make_prior_natparam(n)

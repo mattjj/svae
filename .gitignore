@@ -1,0 +1,15 @@
+*.pyc
+*.aux
+*.log
+*.png
+*.dvi
+*.fdb_latexmk
+*.fls
+*.out
+*.gz
+*.bbl
+*.blg
+*.pyo
+*.c
+*.so
+*.lprof

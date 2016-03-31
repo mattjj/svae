@@ -11,18 +11,16 @@ from time import time
 
 from svae.svae import make_gradfun
 from svae.optimizers import adam, adadelta
-from svae.recognition_models import mlp_recognize, init_mlp_recognize
-from svae.forward_models import mlp_loglike, mlp_decode, init_mlp_loglike
-import svae.lds.mniw as mniw
-import svae.lds.niw as niw
-from svae.lds.lds_inference import natural_lds_sample
-
-from svae.models.lds_svae import make_prior_natparam, lds_prior_expectedstats
-from svae.models.lds_svae import run_inference
 from svae.util import zeros_like, make_unop
 
-from svae.models.lds_svae import cython_run_inference as run_inference
+from svae.recognition_models import mlp_recognize, init_mlp_recognize
+from svae.forward_models import mlp_loglike, mlp_decode, init_mlp_loglike
+from svae.models.lds_svae import cython_run_inference as run_inference, \
+    make_prior_natparam, lds_prior_expectedstats
 from svae.lds.lds_inference import cython_natural_lds_sample as natural_lds_sample
+import svae.lds.mniw as mniw
+import svae.lds.niw as niw
+
 zero_after_prefix = lambda prefix: make_unop(lambda x: np.concatenate(
     (x[:prefix], np.zeros_like(x[prefix:]))), tuple)
 
@@ -56,10 +54,7 @@ def sample_conditional_states(params, data, zero_after=-1):
     x = natural_lds_sample(local_natparam, node_potentials, num_samples=50)
     return x
 
-fig, ax = plt.subplots(figsize=(10, 10))
-# plt.ion()
-plt.tight_layout()
-def plot(itr, params, data, prefix):
+def plot(fig, ax, itr, params, data, prefix):
     y = generate_samples(params, data, prefix)
     T, num_samples, ndim = y.shape
 
@@ -76,13 +71,13 @@ def plot(itr, params, data, prefix):
     fig.savefig('dots_{:03d}.png'.format(itr))
     plt.close('all')
 
-    # plt.draw()
-    # plt.pause(0.1)
-
 
 if __name__ == "__main__":
     npr.seed(0)
     np.set_printoptions(precision=2)
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    plt.tight_layout()
 
     # latent space dimension
     n = 10
@@ -114,7 +109,7 @@ if __name__ == "__main__":
     total = lambda: None
     def callback(itr, vals, natgrad, params):
         total.params = params
-        if eq_mod(itr, -1, plot_every): plot(itr, params, data[:200], prefix)
+        if eq_mod(itr, -1, plot_every): plot(fig, ax, itr, params, data[:200], prefix)
         print_eigvals(params)
         print('{} at {} sec: {}'.format(itr, time() - total.time, np.mean(vals)))
 

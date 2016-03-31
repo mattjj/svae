@@ -1,11 +1,7 @@
 from __future__ import division, print_function
 import numpy as np
 import numpy.random as npr
-import cPickle as pickle
-import gzip
 import matplotlib.pyplot as plt
-from scipy.ndimage import zoom
-from scipy.ndimage.filters import gaussian_filter
 from scipy.signal import sawtooth
 from time import time
 

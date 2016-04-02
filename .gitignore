@@ -13,3 +13,4 @@
 *.c
 *.so
 *.lprof
+/build

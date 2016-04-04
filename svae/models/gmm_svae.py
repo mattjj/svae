@@ -1,8 +1,9 @@
 from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
+from autograd.scipy.misc import logsumexp
 
-from svae.util import contract, sub, unbox
+from svae.util import contract, sub, unbox, shape
 from svae.lds import niw
 from svae.hmm import dirichlet
 
@@ -12,13 +13,14 @@ from svae.hmm import dirichlet
 def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_iter=100):
     def initialize_local_meanfield(node_potentials):
         def get_statistics(samples):
-            samples = samples.sum(1)  # sum out singelton dimension (num_samples = 1)
-            import ipdb; ipdb.set_trace()
+            T = samples.shape[0]
+            outer = lambda x: np.einsum('tki,tkj->tij', x, x)
+            return outer(samples), np.mean(samples, 1), np.ones(T), np.ones(T)
 
         T, N = node_potentials[0].shape
         vanilla_natparam = [(-1./2 * np.eye(N), np.zeros(N))] * T
 
-        return get_statistics(gaussian_sample(vanilla_natparam, node_potentials, 1))
+        return get_statistics(gaussian_sample(vanilla_natparam, node_potentials, N+2))
 
     label_global, gaussian_global = global_natparam
     gaussian_stats = initialize_local_meanfield(node_potentials)
@@ -42,9 +44,13 @@ def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_ite
     return stats, local_natparams, vlbs
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
-    gaussian_local_natparams = niw.expectedstats(gaussian_globals)
+    gaussian_local_natparams = map(niw.expectedstats, gaussian_globals)
+    partial_contract = lambda a, b: \
+        sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y, in zip(a, b))
     node_params = np.array([
-        contract(natparam, gaussian_stats) for natparam in gaussian_local_natparams])
+        partial_contract(gaussian_stats, natparam) for natparam in gaussian_local_natparams]).T
+
+    import ipdb; ipdb.set_trace()
 
     local_natparam = dirichlet.expectedstats(label_global) + node_params
     stats = np.exp(local_natparam  - logsumexp(local_natparam, axis=1, keepdims=True))

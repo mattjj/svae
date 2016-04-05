@@ -145,3 +145,24 @@ def pair_mean_to_natural(A, sigma):
     logZ = -1./2 * np.linalg.slogdet(sigma)[1]
 
     return Jxx, Jxy, Jyy, logZ
+
+
+### vanilla gaussian stuff, maybe should be in a different file
+
+def expectedstats(natparam):
+    J, h = natparam[:2]
+    J = -2*J
+
+    Ex = np.linalg.solve(J, h)
+    ExxT = np.linalg.inv(J) + Ex[...,None] * Ex[...,None,:]
+    En = np.ones(J.shape[0]) if J.ndim == 3 else 1.
+
+    return ExxT, Ex, En, En
+
+def logZ(natparam):
+    J, h = natparam[:2]
+    J = -2*J
+    L = np.linalg.cholesky(J)
+    v = np.linalg.solve(J, h)
+    return 1./2 * np.sum(v*v) - np.sum(np.log(np.diagonal(L, axis1=-1, axis2=-2))) \
+        + sum(map(np.sum, natparam[2:]))

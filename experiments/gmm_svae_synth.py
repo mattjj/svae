@@ -1,4 +1,4 @@
-from __future__ import division
+from __future__ import division, print_function
 import numpy as np
 import numpy.random as npr
 
@@ -27,11 +27,13 @@ if __name__ == "__main__":
     gradfun = make_gradfun(run_inference, linear_recognize, linear_loglike, prior_natparam)
 
     # set up optimizer
-    optimize = adam(data, gradfun)
+    def callback(itr, vals, natgrad, params):
+        print('{}: {}'.format(itr, np.mean(vals)))
+    optimize = adam(data, gradfun, callback)
 
     # set initialization to something generic
     init_phi, init_psi = init_linear_loglike(N, P), init_linear_recognize(N, P)
     params = prior_natparam, init_phi, init_psi
 
     # optimize
-    params = optimize(params, 1e-1, 1e-2, num_epochs=100, seq_len=10)
+    params = optimize(params, 1e-2, 1e-3, num_epochs=100, seq_len=50)

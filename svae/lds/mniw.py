@@ -52,8 +52,8 @@ def expectedstats_standard(nu, S, M, K, fudge=1e-8):
 
 
 def logZ(natparam):
-    nu, S, M, K = natural_to_standard(natparam)
-    n = M.shape[0]
+    nu, S, _, K = natural_to_standard(natparam)
+    n = S.shape[0]
     return n*nu/2.*np.log(2) + multigammaln(nu/2., n) \
         - nu/2.*np.linalg.slogdet(S)[1] + n/2.*np.linalg.slogdet(K)[1]
 

@@ -7,6 +7,8 @@ from svae.util import contract, add, sub, unbox, shape
 from svae.lds import niw, gaussian
 from svae.hmm import dirichlet
 
+normalize = lambda x: x / np.sum(x, 1, keepdims=True)
+
 
 ### GMM mean field inference functions
 
@@ -14,7 +16,7 @@ def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_ite
     def initialize_local_meanfield(label_global, gaussian_global, node_potentials):
         K = label_global.shape[0]
         T = node_potentials[0].shape[0]
-        return npr.rand(T, K)
+        return normalize(npr.rand(T, K))
 
     label_global, gaussian_global = global_natparam
     label_stats = initialize_local_meanfield(label_global, gaussian_global, node_potentials)
@@ -39,14 +41,15 @@ def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_ite
     return stats, local_natparams, vlbs
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
-    gaussian_local_natparams = map(niw.expectedstats, gaussian_globals)
     partial_contract = lambda a, b: \
         sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y, in zip(a, b))
+
+    gaussian_local_natparams = map(niw.expectedstats, gaussian_globals)
     node_params = np.array([
         partial_contract(gaussian_stats, natparam) for natparam in gaussian_local_natparams]).T
 
     local_natparam = dirichlet.expectedstats(label_global) + node_params
-    stats = np.exp(local_natparam  - logsumexp(local_natparam, axis=1, keepdims=True))
+    stats = normalize(np.exp(local_natparam  - logsumexp(local_natparam, axis=1, keepdims=True)))
     vlb = np.sum(logsumexp(local_natparam, axis=1))
 
     return local_natparam, stats, vlb
@@ -107,10 +110,9 @@ def make_gmm_global_natparam(K, N, alpha, random=False):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
 
     def make_gaussian_global_natparam(n, random):
-        if not random:
-            nu, S, mu, kappa = n+10., (n+10.)*np.eye(n), np.zeros(n), 10.
-        else:
-            nu, S, mu, kappa = n+4.+npr.rand(), (n+npr.rand())*np.eye(n), npr.randn(n), npr.rand()
+        nu, S, mu, kappa = n+1., (n+1.)*np.eye(n), np.zeros(n), 1.
+        if random:
+            mu = mu + 0.1*npr.randn(*mu.shape)
         return niw.standard_to_natural(nu, S, mu, kappa)
 
     label_global_natparam = make_label_global_natparam(K, random)

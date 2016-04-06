@@ -13,34 +13,35 @@ from util import sigmoid
 # so x.shape == (T, p) and zshape == (T, n) or (T, K, n)
 
 
-### dense linear gaussian forward model
-
-def linear_loglike(x, z, phi):
-    C, D = phi
-    z = z if z.ndim == 3 else z[:,None,:]  # ensure z.shape == (T, K, n)
-    T, p = x.shape
-    K = z.shape[0]
-
-    sigma_obs = np.dot(D, D.T)
-    centered = x[:,None,:] - np.dot(z, C.T)
-    quad = -1./(2*K) * np.einsum('tki,ij,tkj->', centered, np.linalg.inv(sigma_obs), centered)
-    logdet = -T/2. * np.linalg.slogdet(sigma_obs)[1]
-    basedensity = -T*p/2. * np.log(2*np.pi)
-
-    return (quad + logdet + basedensity) / z.shape[1]
-
-
-init_linear_loglike = init_linear_recognize
-
-
-### mlp gaussian forward model
-
 def _diagonal_gaussian_loglike(x, mu, log_sigmasq):
     T, K, p = mu.shape
     assert x.shape == (T, p)
     return -T*p/2.*np.log(2*np.pi) + (-1./2*np.sum((x[:,None,:]-mu)**2 / np.exp(log_sigmasq))
             - 1/2.*np.sum(log_sigmasq)) / K
 
+
+### dense linear gaussian forward model
+
+def linear_decode(z, phi):
+    C, D = phi
+    z = z if z.ndim == 3 else z[:,None,:]  # ensure z.shape == (T, K, n)
+
+    mu = np.dot(z, C.T)
+    log_sigmasq = np.tile(np.diag(np.dot(D, D.T))[None,None,:], mu.shape[:2] + (1,))
+
+    shape = z.shape[:-1] + (-1,)
+    return np.reshape(mu, shape), np.reshape(log_sigmasq, shape)
+
+
+def linear_loglike(x, z, phi):
+    mu, log_sigmasq = linear_decode(z, phi)
+    return _diagonal_gaussian_loglike(x, mu, log_sigmasq)
+
+
+init_linear_loglike = init_linear_recognize
+
+
+### mlp gaussian forward model
 
 def mlp_decode(z, phi, tanh_scale=10.):
     nnet_params, ((W_mu, b_mu), (W_sigma, b_sigma)) = phi[:-2], phi[-2:]

@@ -105,14 +105,14 @@ def get_local_gaussian_stats(gaussian_stats):
     ExxT, Ex, En, En = gaussian_stats
     return np.diagonal(ExxT, axis1=-1, axis2=-2), Ex, En
 
-def make_gmm_global_natparam(K, N, alpha, random=False):
+def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random=False):
     def make_label_global_natparam(k, random):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
 
     def make_gaussian_global_natparam(n, random):
-        nu, S, mu, kappa = n+1., (n+1.)*np.eye(n), np.zeros(n), 1.
+        nu, S, mu, kappa = n+niw_conc, (n+niw_conc)*np.eye(n), np.zeros(n), niw_conc
         if random:
-            mu = mu + 0.1*npr.randn(*mu.shape)
+            mu = mu + 0.25*npr.randn(*mu.shape)
         return niw.standard_to_natural(nu, S, mu, kappa)
 
     label_global_natparam = make_label_global_natparam(K, random)
@@ -131,6 +131,7 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
         optimize_local_meanfield(global_natparam, unbox(nn_potentials))
 
     # recompute values that depend on nn_potentials at optimum
+    # TODO make these return vlbs, not normalizers. in fact, make optimize_local_meanfield do it!
     _, gaussian_stats, gaussian_normalizer = \
         gaussian_meanfield(gaussian_global_natparams, nn_potentials, label_stats)
     _, _, label_vlb = \
@@ -145,6 +146,7 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
 
     # compute global and local vlb terms
     gaussian_vlb = gaussian_normalizer - contract(nn_potentials, local_gaussian_stats)
+    # local_vlb = label_vlb
     local_vlb = label_vlb + gaussian_vlb
     global_vlb = gmm_prior_vlb(global_natparam, prior_natparam)
 

@@ -13,18 +13,13 @@ normalize = lambda x: x / np.sum(x, 1, keepdims=True)
 ### GMM mean field inference functions
 
 def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_iter=100):
-    def initialize_local_meanfield(label_global, gaussian_global, node_potentials):
-        K = label_global.shape[0]
-        T = node_potentials[0].shape[0]
-        return normalize(npr.rand(T, K))
-
     label_global, gaussian_global = global_natparam
-    label_stats = initialize_local_meanfield(label_global, gaussian_global, node_potentials)
 
     local_vlb = -np.inf
+    label_stats = initialize_local_meanfield(label_global, node_potentials)
     for _ in xrange(max_iter):
         gaussian_natparam, gaussian_stats, gaussian_vlb = \
-            gaussian_meanfield(gaussian_global, node_potentials, label_stats)
+            gaussian_meanfield(gaussian_global, unbox(node_potentials), label_stats)
         label_natparam, label_stats, label_vlb = \
             label_meanfield(label_global, gaussian_global, gaussian_stats)
 
@@ -34,11 +29,22 @@ def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_ite
     else:
         print 'iteration limit reached'
 
+    # recompute values that depend on node_potentials at optimum
+    gaussian_natparam, gaussian_stats, gaussian_vlb = \
+        gaussian_meanfield(gaussian_global, node_potentials, label_stats)
+    label_natparam, label_stats, label_vlb = \
+        label_meanfield(label_global, gaussian_global, gaussian_stats)
+
     stats = label_stats, gaussian_stats
     local_natparams = label_natparam, gaussian_natparam
     vlbs = label_vlb, gaussian_vlb
 
     return stats, local_natparams, vlbs
+
+def initialize_local_meanfield(label_global, node_potentials):
+    K = label_global.shape[0]
+    T = node_potentials[0].shape[0]
+    return normalize(npr.rand(T, K))
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
     partial_contract = lambda a, b: \
@@ -50,7 +56,7 @@ def label_meanfield(label_global, gaussian_globals, gaussian_stats):
 
     local_natparam = dirichlet.expectedstats(label_global) + node_params
     stats = normalize(np.exp(local_natparam  - logsumexp(local_natparam, axis=1, keepdims=True)))
-    vlb = np.sum(logsumexp(local_natparam, axis=1))
+    vlb = np.sum(logsumexp(local_natparam, axis=1)) - contract(stats, node_params)
 
     return local_natparam, stats, vlb
 
@@ -65,24 +71,27 @@ def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
                            for param in zip(*map(niw.expectedstats, gaussian_globals))]
         return add(local_natparams, make_full_potentials(node_potentials))
 
+    def get_node_stats(gaussian_stats):
+        ExxT, Ex, En, En = gaussian_stats
+        return np.diagonal(ExxT, axis1=-1, axis2=-2), Ex, En
+
     local_natparam = get_local_natparam(gaussian_globals, node_potentials, label_stats)
     stats = gaussian.expectedstats(local_natparam)
-    vlb = gaussian.logZ(local_natparam)
+    vlb = gaussian.logZ(local_natparam) - contract(node_potentials, get_node_stats(stats))
 
     return local_natparam, stats, vlb
 
 
 ### other inference functions used at optimum
 
-def gaussian_sample(local_natparams, node_potentials, num_samples):
+def gaussian_sample(local_natparams, num_samples):
     from svae.lds.gaussian import natural_sample
-    return np.array([
-        natural_sample(J + np.diag(Jo), h + ho, num_samples)
-        for (J, h), (Jo, ho) in zip(zip(*local_natparams[:2]), zip(*node_potentials[:2]))])
+    Js, hs = local_natparams[:2]
+    return np.array([natural_sample(J, h, num_samples) for J, h in zip(Js, hs)])
 
 ### GMM global operations
 
-def gmm_prior_vlb(global_natparam, prior_natparam):
+def gmm_global_vlb(global_natparam, prior_natparam):
     def gmm_prior_logZ(natparam):
         dir_natparam, niw_natparams = natparam
         return dirichlet.logZ(dir_natparam) + sum(map(niw.logZ, niw_natparams))
@@ -101,9 +110,7 @@ def get_global_stats(label_stats, gaussian_stats):
     global_gaussian_stats = tuple(map(contract(w), gaussian_stats) for w in label_stats.T)
     return global_label_stats, global_gaussian_stats
 
-def get_local_gaussian_stats(gaussian_stats):
-    ExxT, Ex, En, En = gaussian_stats
-    return np.diagonal(ExxT, axis1=-1, axis2=-2), Ex, En
+### prior initialization
 
 def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random=False):
     def make_label_global_natparam(k, random):
@@ -126,28 +133,12 @@ def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random=False):
 def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     label_global_natparam, gaussian_global_natparams = global_natparam
 
-    # optimize local mean field (using unboxed val)
-    (label_stats, _), (_, gaussian_local_natparam), _ = \
-        optimize_local_meanfield(global_natparam, unbox(nn_potentials))
+    (label_stats, gaussian_stats), (_, gaussian_local_natparam), (label_vlb, gaussian_vlb) = \
+        optimize_local_meanfield(global_natparam, nn_potentials)
 
-    # recompute values that depend on nn_potentials at optimum
-    # TODO make these return vlbs, not normalizers. in fact, make optimize_local_meanfield do it!
-    _, gaussian_stats, gaussian_normalizer = \
-        gaussian_meanfield(gaussian_global_natparams, nn_potentials, label_stats)
-    _, _, label_vlb = \
-        label_meanfield(label_global_natparam, gaussian_global_natparams, gaussian_stats)
-    local_gaussian_stats = get_local_gaussian_stats(gaussian_stats)
-
-    # compute samples of gaussian values
-    samples = gaussian_sample(gaussian_local_natparam, nn_potentials, num_samples)
-
-    # get global statistics from the local expected stats
     expected_stats = get_global_stats(label_stats, gaussian_stats)
-
-    # compute global and local vlb terms
-    gaussian_vlb = gaussian_normalizer - contract(nn_potentials, local_gaussian_stats)
-    # local_vlb = label_vlb
+    samples = gaussian_sample(gaussian_local_natparam, num_samples)
     local_vlb = label_vlb + gaussian_vlb
-    global_vlb = gmm_prior_vlb(global_natparam, prior_natparam)
+    global_vlb = gmm_global_vlb(global_natparam, prior_natparam)
 
     return samples, expected_stats, global_vlb, local_vlb

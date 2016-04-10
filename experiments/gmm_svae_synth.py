@@ -68,7 +68,7 @@ if __name__ == "__main__":
     npr.seed(1)
     # plt.ion()
 
-    K = 8  # number of components in mixture model
+    K = 5  # number of components in mixture model
     N = 2  # number of latent dimensions
     P = 2  # number of observation dimensions
 
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     data[:,1] *= 5.  # make eccentric
 
     # set prior natparam
-    prior_natparam = make_gmm_global_natparam(K, N, alpha=1./K, niw_conc=2., random=True)
+    prior_natparam = make_gmm_global_natparam(K, N, alpha=0.2/K, niw_conc=2., random=True)
 
     # build svae gradient function
     gradfun = make_gradfun(run_inference, linear_recognize, linear_loglike, prior_natparam)
@@ -107,7 +107,4 @@ if __name__ == "__main__":
 
     # optimize
     plot(0, axs, data, params)  # initial condition
-    # params = optimize(params, 10.,  1e-1, num_epochs=100, seq_len=50, num_samples=10)
-    # params = optimize(params, 1e-1, 1e-3, num_epochs=100, seq_len=50, num_samples=10)
-    params = optimize(params, 10.,  0., num_epochs=50, seq_len=50, num_samples=10)
-    params = optimize(params, 0., 1e-3, num_epochs=100, seq_len=50, num_samples=10)
+    params = optimize(params, 10., 5e-2, num_epochs=200, seq_len=25, num_samples=10)

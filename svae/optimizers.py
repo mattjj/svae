@@ -36,7 +36,7 @@ def adam(data, val_and_grad, callback=None):
                 vals.append(val)
                 i += 1
 
-                if callback: callback(epoch, vals, natgrad, allparams)
+            if callback: callback(epoch, vals, natgrad, allparams)
 
         return allparams
     return adam
@@ -67,6 +67,6 @@ def adadelta(data, val_and_grad, callback=None):
                 allparams = concat(natparams, params)
                 vals.append(val)
 
-                if callback: callback(epoch, vals, natgrad, allparams)
+            if callback: callback(epoch, vals, natgrad, allparams)
         return allparams
     return adadelta

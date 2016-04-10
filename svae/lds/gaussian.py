@@ -163,6 +163,6 @@ def logZ(natparam):
     J, h = natparam[:2]
     J = -2*J
     L = np.linalg.cholesky(J)
-    v = np.linalg.solve(J, h)
-    return 1./2 * np.sum(v*v) - np.sum(np.log(np.diagonal(L, axis1=-1, axis2=-2))) \
+    return 1./2 * np.sum(h * np.linalg.solve(J, h)) \
+        - np.sum(np.log(np.diagonal(L, axis1=-1, axis2=-2))) \
         - sum(map(np.sum, natparam[2:]))

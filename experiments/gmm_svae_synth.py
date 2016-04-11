@@ -56,7 +56,7 @@ def plot(itr, axs, data, params):
         x, y = generate_ellipse(mu, Sigma)
         transformed_x, transformed_y = decode(np.vstack((x, y)).T, phi).T
         plot_or_update(idx, ax0, transformed_x, transformed_y,
-                       alpha=np.min(1., K*weight), linestyle='-', linewidth=2)
+                       alpha=min(1., K*weight), linestyle='-', linewidth=2)
 
     # make latent space plot
 
@@ -65,7 +65,7 @@ def plot(itr, axs, data, params):
 
     for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
         x, y = generate_ellipse(mu, Sigma)
-        plot_or_update(idx+1, ax1, x, y, alpha=np.min(1., K*weight),
+        plot_or_update(idx+1, ax1, x, y, alpha=min(1., K*weight),
                        linestyle='-', linewidth=2)
 
     ax1.relim()
@@ -77,6 +77,29 @@ def plot(itr, axs, data, params):
     plt.pause(0.0001)
 
 
+def make_gmm_data():
+    data = npr.permutation(np.concatenate(
+        [-2. + npr.randn(50, P),
+         2. + npr.randn(50, P),
+         np.array([-3, 3.]) + npr.randn(50, P)]))
+    data[:,1] *= 3.  # make eccentric
+    return data
+
+def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, rate):
+    rads = np.linspace(0, 2*np.pi, num_classes, endpoint=False)
+
+    features = npr.randn(num_classes*num_per_class, 2) \
+        * np.array([radial_std, tangential_std])
+    features[:,0] += 1
+    labels = np.repeat(np.arange(num_classes), num_per_class)
+
+    angles = rads[labels] + rate * np.exp(features[:,0])
+    rotations = np.stack([np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
+    rotations = np.reshape(rotations.T, (-1, 2, 2))
+
+    return 10*npr.permutation(np.einsum('ti,tij->tj', features, rotations))
+
+
 if __name__ == "__main__":
     npr.seed(1)
     # plt.ion()
@@ -85,9 +108,9 @@ if __name__ == "__main__":
     N = 2  # number of latent dimensions
     P = 2  # number of observation dimensions
 
-    # generate synthetic data
-    data = npr.permutation(np.concatenate([-2. + npr.randn(50, P), 2. + npr.randn(50, P), np.array([-3, 3.]) + npr.randn(50, P)]))
-    data[:,1] *= 3.  # make eccentric
+    ## generate synthetic data
+    # data = make_gmm_data()
+    data = make_pinwheel_data(0.3, 0.1, 5, 100, 0.3)
 
     # set prior natparam
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2., random=True)
@@ -110,14 +133,14 @@ if __name__ == "__main__":
         print('{}: {}'.format(itr, np.mean(vals)))
         plot(itr, axs, data, params)
 
-    # instantiate optimizer
+    ## instantiate optimizer
     optimize = adam(data, gradfun, callback)
 
-    # set initialization to something generic
+    ## set initialization to something generic
     # init_phi, init_psi = init_linear_loglike(N, P), init_linear_recognize(N, P)
     init_phi = init_psi = np.eye(P), 0.01*np.eye(P)
     params = prior_natparam, init_phi, init_psi
 
-    # optimize
+    ## optimize
     plot(0, axs, data, params)  # initial condition
     params = optimize(params, 10., 1e-3, num_epochs=600, seq_len=25, num_samples=10)

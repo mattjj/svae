@@ -68,5 +68,20 @@ def mlp_loglike_withlabels(x, z, phi):
     return mlp_loglike(x[:,:-1], z, phi)
 
 
-def init_mlp_loglike(hdims, n, p):
-    return init_mlp_recognize(hdims, p, n)
+def init_mlp_loglike(hdims, n, p, scale=1e-2):
+    return init_mlp_recognize(hdims, p, n, scale)
+
+
+### resnet forward model
+
+def resnet_loglike(x, z, phi):
+    mu, log_sigmasq = resnet_decode(z, phi)
+    return _diagonal_gaussian_loglike(x, mu, log_sigmasq)
+
+def resnet_decode(z, phi):
+    phi_linear, phi_mlp = phi
+    # return add(linear_decode(z, phi_linear), mlp_decode(z, phi_mlp))
+    return linear_decode(z, phi_linear)
+
+def init_resnet_loglike(hdims, n, p):
+    return init_linear_loglike(n, p), init_mlp_loglike(hdims, n, p)

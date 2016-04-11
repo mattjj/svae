@@ -2,11 +2,12 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 from autograd.util import make_tuple
+from functools import partial
 
 from nnet import tanh_layer, linear_layer, compose, init_layer
 from lds.gaussian import pair_mean_to_natural
 
-from util import sigmoid
+from util import sigmoid, add
 
 # size conventions:
 #   T = length of data sequence
@@ -30,8 +31,9 @@ def linear_recognize(x, psi):
     return make_tuple(J, h, logZ)
 
 
-def init_linear_recognize(n, p):
-    return 1e-2*npr.randn(p, n), 1e-2*npr.randn(p, p)
+def init_linear_recognize(n, p, scale=1e-2):
+    # return 1e-2*npr.randn(p, n), 1e-2*npr.randn(p, p)
+    return scale*npr.randn(p, n), scale*npr.randn(p, p)
 
 
 ### mlp recognition function
@@ -53,12 +55,24 @@ def mlp_recognize(x, psi, tanh_scale=10.):
     return make_tuple(np.reshape(J, shape), np.reshape(h, shape), logZ)
 
 
-def init_mlp_recognize(hdims, n, p):
+def init_mlp_recognize(hdims, n, p, scale=1e-2):
     dims = [p] + hdims
-    nnet_params = map(init_layer, zip(dims[:-1], dims[1:]))
-    W_mu, b_mu = init_layer((dims[-1], n))
-    W_sigma, b_sigma = init_layer((dims[-1], n))
+    nnet_params = map(partial(init_layer, scale=scale), zip(dims[:-1], dims[1:]))
+    W_mu, b_mu = init_layer((dims[-1], n), scale)
+    W_sigma, b_sigma = init_layer((dims[-1], n), scale)
     return nnet_params + [(W_mu, b_mu), (W_sigma, b_sigma)]
+
+
+### residual network recognize
+
+def resnet_recognize(x, psi):
+    psi_linear, psi_mlp = psi
+    # return add(linear_recognize(x, psi_linear), mlp_recognize(x, psi_mlp, tanh_scale=100.))
+    return linear_recognize(x, psi_linear)
+
+
+def init_resnet_recognize(hdims, n, p):
+    return init_linear_recognize(n, p), init_mlp_recognize(hdims, n, p)
 
 
 ### meta

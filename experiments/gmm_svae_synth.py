@@ -2,25 +2,34 @@ from __future__ import division, print_function
 import numpy as np
 import numpy.random as npr
 import matplotlib.pyplot as plt
+from functools import partial
 
 from svae.svae import make_gradfun
 from svae.optimizers import adam
-from svae.recognition_models import linear_recognize, init_linear_recognize
-from svae.forward_models import linear_decode, linear_loglike, init_linear_loglike
+
+# from svae.recognition_models import mlp_recognize, init_mlp_recognize
+# from svae.forward_models import mlp_decode, mlp_loglike, init_mlp_loglike
+from svae.recognition_models import resnet_recognize, init_resnet_recognize
+from svae.forward_models import resnet_decode, resnet_loglike, init_resnet_loglike
 
 from svae.models.gmm_svae import run_inference, make_gmm_global_natparam
 from svae.lds import niw
 from svae.hmm import dirichlet
 
 
+recognize = resnet_recognize
+loglike = resnet_loglike
+decode = resnet_decode
+init_recognize = init_resnet_recognize
+init_loglike = init_resnet_loglike
 normalize = lambda x: x / np.sum(x)
 
-def encode(data, psi):
-    J, h, _ = linear_recognize(data, psi)
+def encode_mean(data, psi):
+    J, h, _ = recognize(data, psi)
     return h / (-2*J)
 
-def decode(z, phi):
-    mu, log_sigmasq = linear_decode(z, phi)
+def decode_mean(z, phi):
+    mu, log_sigmasq = decode(z, phi)
     return mu.mean(1)
 
 def plot(itr, axs, data, params):
@@ -44,8 +53,8 @@ def plot(itr, axs, data, params):
     weights = normalize(np.exp(dirichlet.expectedstats(dir_hypers)))
     components = map(niw.expected_standard_params, all_niw_hypers)
 
-    latent_locations = encode(data, psi)
-    reconstruction = decode(latent_locations, phi)
+    latent_locations = encode_mean(data, psi)
+    reconstruction = decode_mean(latent_locations, phi)
 
     # make data-space plot
 
@@ -54,7 +63,7 @@ def plot(itr, axs, data, params):
 
     for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
         x, y = generate_ellipse(mu, Sigma)
-        transformed_x, transformed_y = decode(np.vstack((x, y)).T, phi).T
+        transformed_x, transformed_y = decode_mean(np.vstack((x, y)).T, phi).T
         plot_or_update(idx, ax0, transformed_x, transformed_y,
                        alpha=min(1., K*weight), linestyle='-', linewidth=2)
 
@@ -104,19 +113,20 @@ if __name__ == "__main__":
     npr.seed(1)
     # plt.ion()
 
-    K = 8  # number of components in mixture model
+    K = 1  # number of components in mixture model
     N = 2  # number of latent dimensions
     P = 2  # number of observation dimensions
 
     ## generate synthetic data
     # data = make_gmm_data()
-    data = make_pinwheel_data(0.3, 0.1, 5, 100, 0.3)
+    data = make_pinwheel_data(0.3, 0.1, 3, 100, 0.3)
 
     # set prior natparam
-    prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2., random=True)
+    prior_natparam = make_gmm_global_natparam(
+        K, N, alpha=0.1/K, niw_conc=2., random=False)
 
     # build svae gradient function
-    gradfun = make_gradfun(run_inference, linear_recognize, linear_loglike, prior_natparam)
+    gradfun = make_gradfun(run_inference, recognize, loglike, prior_natparam)
 
     # set up plotting and callback
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
@@ -137,10 +147,12 @@ if __name__ == "__main__":
     optimize = adam(data, gradfun, callback)
 
     ## set initialization to something generic
-    # init_phi, init_psi = init_linear_loglike(N, P), init_linear_recognize(N, P)
-    init_phi = init_psi = np.eye(P), 0.01*np.eye(P)
-    params = prior_natparam, init_phi, init_psi
+    init_eta = make_gmm_global_natparam(
+        K, N, alpha=1., niw_conc=2., random=True)
+    init_phi = init_loglike([], N, P)
+    init_psi = init_recognize([], N, P)
+    params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 10., 1e-3, num_epochs=600, seq_len=25, num_samples=10)
+    params = optimize(params, 0., 1e-2, num_epochs=600, seq_len=50, num_samples=10)

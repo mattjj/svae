@@ -132,7 +132,7 @@ if __name__ == "__main__":
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
 
     # build svae gradient function
-    gradfun, vlb = make_gradfun(run_inference, recognize, loglike, prior_natparam, return_vlb=True)
+    gradfun = make_gradfun(run_inference, recognize, loglike, prior_natparam)
 
     # set up plotting and callback
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))

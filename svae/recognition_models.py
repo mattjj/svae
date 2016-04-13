@@ -34,7 +34,7 @@ def linear_recognize(x, psi):
 def init_linear_recognize(n, p, scale=1e-2):
     # return 1e-2*npr.randn(p, n), 1e-2*npr.randn(p, p)
     # return scale*npr.randn(p, n), scale*npr.randn(p, p)
-    return np.eye(n), np.ones(p)
+    return np.eye(n), np.ones(p)  # TODO put back
 
 
 ### mlp recognition function

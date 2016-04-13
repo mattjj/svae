@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
     ## generate synthetic data
     # data = make_gmm_data()
-    data = make_pinwheel_data(0.25, 0.1, 5, 500, 0.3)
+    data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
 
     # set prior natparam
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
@@ -155,12 +155,11 @@ if __name__ == "__main__":
     optimize = adam(data, gradfun, callback)
 
     ## set initialization to something generic
-    init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=0.5)
-    init_phi = init_loglike([50, 50], N, P)
-    init_psi = init_recognize([50, 50], N, P)
+    init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=5.)
+    init_phi = init_loglike([20, 20], N, P)
+    init_psi = init_recognize([20, 20], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    # params = optimize(params, 1., 0., num_epochs=100, seq_len=150, num_samples=10)
-    params = optimize(params, 10., 1e-3, num_epochs=1000, seq_len=100, num_samples=10)
+    params = optimize(params, 10., 5e-3, num_epochs=1000, seq_len=250, num_samples=5)

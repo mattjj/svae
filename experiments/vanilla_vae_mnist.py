@@ -6,10 +6,9 @@ from svae.svae import make_gradfun
 from svae.optimizers import adam
 from svae.recognition_models import mlp_recognize, init_mlp_recognize
 from svae.forward_models import mlp_loglike, mlp_decode, init_mlp_loglike
-from svae.viz import plot_random_examples, plot_samples
 
 from svae.models.vanilla_vae import run_inference
-
+from svae.viz import plot_random_examples, plot_samples
 from data import mnist
 
 np.seterr(invalid='raise', over='raise', divide='raise')

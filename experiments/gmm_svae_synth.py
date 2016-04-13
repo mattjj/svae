@@ -69,7 +69,7 @@ def plot(itr, axs, data, params):
         x, y = generate_ellipse(mu, Sigma)
         transformed_x, transformed_y = decode_mean(np.vstack((x, y)).T, phi).T
         plot_or_update(idx, ax0, transformed_x, transformed_y,
-                       alpha=min(1., K*weight), linestyle='-', linewidth=2)
+                       alpha=min(1., num_clusters*weight), linestyle='-', linewidth=2)
 
     ## make latent space plot
 
@@ -78,7 +78,7 @@ def plot(itr, axs, data, params):
 
     for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
         x, y = generate_ellipse(mu, Sigma)
-        plot_or_update(idx+1, ax1, x, y, alpha=min(1., K*weight),
+        plot_or_update(idx+1, ax1, x, y, alpha=min(1., num_clusters*weight),
                        linestyle='-', linewidth=2)
 
     ax1.relim()
@@ -125,8 +125,8 @@ if __name__ == "__main__":
     P = 2   # number of observation dimensions
 
     ## generate synthetic data
-    # data = make_gmm_data()
-    data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
+    num_clusters = 5
+    data = make_pinwheel_data(0.3, 0.05, num_clusters, 200, 0.25)
 
     # set prior natparam
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
@@ -156,10 +156,10 @@ if __name__ == "__main__":
 
     ## set initialization to something generic
     init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=5.)
-    init_phi = init_loglike([20, 20], N, P)
-    init_psi = init_recognize([20, 20], N, P)
+    init_phi = init_loglike([30, 30], N, P)
+    init_psi = init_recognize([30, 30], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 10., 5e-3, num_epochs=1000, seq_len=250, num_samples=5)
+    params = optimize(params, 10., 1e-2, num_epochs=1000, seq_len=200, num_samples=10)

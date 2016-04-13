@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     # build svae gradient function
     num_minibatches = 100
-    gradfun = make_gradfun(run_inference, mlp_recognize, mlp_loglike, prior_natparam, 1)
+    gradfun = make_gradfun(run_inference, mlp_recognize, mlp_loglike, prior_natparam)
 
     # set up callback function for printing and plotting during optimization
     total = lambda: None
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         _, phi, _ = params
         total.itr += 1
 
-        samplefun = lambda num: mlp_decode(npr.randn(num, n), phi)[0]
+        samplefun = lambda num: mlp_decode(npr.randn(num, n), phi)[0].mean(1)
         eq_mod = lambda a, b, m: a % m == b % m
 
         print('{}: {}'.format(total.itr, val))

@@ -12,7 +12,7 @@ import autograd.numpy.random as npr
 # the code here is specialized to diagonal gaussians
 
 def unpack_params(natparams):
-    neghalfJs, hs, _ = map(np.array, zip(*natparams))
+    neghalfJs, hs, _ = natparams
     Js = -2 * neghalfJs
     mus, sigmasqs = hs/Js, 1./Js
     return mus, sigmasqs

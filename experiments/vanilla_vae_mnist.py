@@ -3,12 +3,13 @@ import numpy as np
 import numpy.random as npr
 
 from svae.svae import make_gradfun
-from svae.optimizers import sga, adadelta
+from svae.optimizers import adam
 from svae.recognition_models import mlp_recognize, init_mlp_recognize
 from svae.forward_models import mlp_loglike, mlp_decode, init_mlp_loglike
 from svae.viz import plot_random_examples, plot_samples
 
 from svae.models.vanilla_vae import run_inference
+
 from data import mnist
 
 np.seterr(invalid='raise', over='raise', divide='raise')
@@ -45,8 +46,7 @@ if __name__ == "__main__":
 
     # build svae gradient function
     num_minibatches = 100
-    gradfun = make_gradfun(run_inference, mlp_recognize, mlp_loglike,
-                           prior_natparam, 1)
+    gradfun = make_gradfun(run_inference, mlp_recognize, mlp_loglike, prior_natparam, 1)
 
     # set up callback function for printing and plotting during optimization
     total = lambda: None
@@ -62,7 +62,7 @@ if __name__ == "__main__":
         if eq_mod(total.itr, -1, 1): plot_samples(total.itr, samplefun)
 
     # set up optimizer
-    optimize = adadelta(data, gradfun, callback)
+    optimize = adam(data, gradfun, callback)
 
     # initialize model parameters
     init_eta = ()  # no global variables
@@ -71,4 +71,4 @@ if __name__ == "__main__":
     params = init_eta, init_phi, init_psi
 
     # optimize
-    params = optimize(params, 0., num_epochs=1000, seq_len=20, num_samples=1)
+    params = optimize(params, 0., 1e-3, num_epochs=1000, seq_len=20, num_samples=1)

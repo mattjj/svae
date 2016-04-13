@@ -3,7 +3,8 @@ from autograd import value_and_grad as vgrad
 from util import add, sub, contract, scale, unbox
 
 
-def make_gradfun(run_inference, recognize, loglike, eta_prior, return_flat=False):
+def make_gradfun(run_inference, recognize, loglike, eta_prior,
+                 return_flat=False, return_vlb=False):
     saved = lambda: None
 
     def mc_vlb(eta, phi, psi, y_n, N, L):
@@ -24,6 +25,10 @@ def make_gradfun(run_inference, recognize, loglike, eta_prior, return_flat=False
         objective = lambda (eta, phi, psi): mc_vlb(eta, phi, psi, y_n, N, L)
         return vgrad(objective)((eta, phi, psi))
 
+    if return_vlb:
+        return gradfun, mc_vlb
+
     if return_flat:
         return gradfun, flat_gradfun
+
     return gradfun

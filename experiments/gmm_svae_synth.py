@@ -7,12 +7,12 @@ from functools import partial
 from svae.svae import make_gradfun
 from svae.optimizers import adam
 
-# from svae.recognition_models import mlp_recognize, init_mlp_recognize
-# from svae.forward_models import mlp_decode, mlp_loglike, init_mlp_loglike
-from svae.recognition_models import resnet_recognize, init_resnet_recognize
-from svae.forward_models import resnet_decode, resnet_loglike, init_resnet_loglike
+from svae.recognition_models import mlp_recognize, init_mlp_recognize, \
+    resnet_recognize, init_resnet_recognize
+from svae.forward_models import mlp_decode, mlp_loglike, init_mlp_loglike, \
+    resnet_decode, resnet_loglike, init_resnet_loglike
 
-from svae.models.gmm_svae import run_inference, make_gmm_global_natparam
+from svae.models.gmm_svae import run_inference, make_gmm_global_natparam, optimize_local_meanfield
 from svae.lds import niw
 from svae.hmm import dirichlet
 
@@ -22,15 +22,19 @@ loglike = resnet_loglike
 decode = resnet_decode
 init_recognize = init_resnet_recognize
 init_loglike = init_resnet_loglike
+
 normalize = lambda x: x / np.sum(x)
 
-def encode_mean(data, psi):
-    J, h, _ = recognize(data, psi)
-    return h / (-2*J)
+def encode_mean(data, natparam, psi):
+    nn_potentials = recognize(data, psi)
+    (_, gaussian_stats), _, _ = optimize_local_meanfield(natparam, nn_potentials)
+    _, Ex, _, _ = gaussian_stats
+    return Ex
 
 def decode_mean(z, phi):
     mu, log_sigmasq = decode(z, phi)
-    return mu.mean(1)
+    assert mu.ndim == 2 or mu.shape[1] == 1
+    return mu.mean(axis=1)
 
 def plot(itr, axs, data, params):
     natparam, phi, psi = params
@@ -53,13 +57,13 @@ def plot(itr, axs, data, params):
     weights = normalize(np.exp(dirichlet.expectedstats(dir_hypers)))
     components = map(niw.expected_standard_params, all_niw_hypers)
 
-    latent_locations = encode_mean(data, psi)
+    latent_locations = encode_mean(data, natparam, psi)
     reconstruction = decode_mean(latent_locations, phi)
 
-    # make data-space plot
+    ## make data-space plot
 
     # plot_or_update(0, ax0, reconstruction[:,0], reconstruction[:,1],
-    #                color='b', marker='x', linestyle='', alpha=0.)
+    #                color='b', marker='x', linestyle='')
 
     for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
         x, y = generate_ellipse(mu, Sigma)
@@ -67,7 +71,7 @@ def plot(itr, axs, data, params):
         plot_or_update(idx, ax0, transformed_x, transformed_y,
                        alpha=min(1., K*weight), linestyle='-', linewidth=2)
 
-    # make latent space plot
+    ## make latent space plot
 
     plot_or_update(0, ax1, latent_locations[:,0], latent_locations[:,1],
                    color='k', marker='o', linestyle='')
@@ -80,10 +84,11 @@ def plot(itr, axs, data, params):
     ax1.relim()
     ax1.autoscale_view(True, True, True)
 
-    # save plot
+    ## save plot
 
-    plt.savefig('figures/gmm_{:04d}.png'.format(itr))
-    plt.pause(0.0001)
+    plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150)
+    # plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150, transparent=True)
+    # plt.pause(0.0001)
 
 
 def make_gmm_data():
@@ -99,7 +104,7 @@ def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, r
 
     features = npr.randn(num_classes*num_per_class, 2) \
         * np.array([radial_std, tangential_std])
-    features[:,0] += 1
+    features[:,0] += 1.
     labels = np.repeat(np.arange(num_classes), num_per_class)
 
     angles = rads[labels] + rate * np.exp(features[:,0])
@@ -111,22 +116,23 @@ def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, r
 
 if __name__ == "__main__":
     npr.seed(1)
+    from cycler import cycler
+    plt.rc('axes', prop_cycle=(cycler('color', ['blue', 'orange', 'red', 'cyan', 'magenta', 'yellow'])))
     # plt.ion()
 
-    K = 1  # number of components in mixture model
-    N = 2  # number of latent dimensions
-    P = 2  # number of observation dimensions
+    K = 15  # number of components in mixture model
+    N = 2   # number of latent dimensions
+    P = 2   # number of observation dimensions
 
     ## generate synthetic data
     # data = make_gmm_data()
-    data = make_pinwheel_data(0.3, 0.1, 3, 100, 0.3)
+    data = make_pinwheel_data(0.25, 0.1, 5, 500, 0.3)
 
     # set prior natparam
-    prior_natparam = make_gmm_global_natparam(
-        K, N, alpha=0.1/K, niw_conc=2., random=False)
+    prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
 
     # build svae gradient function
-    gradfun = make_gradfun(run_inference, recognize, loglike, prior_natparam)
+    gradfun, vlb = make_gradfun(run_inference, recognize, loglike, prior_natparam, return_vlb=True)
 
     # set up plotting and callback
     fig, axs = plt.subplots(1, 2, figsize=(8, 4))
@@ -134,6 +140,8 @@ if __name__ == "__main__":
     axs[0].set_aspect('equal')
     axs[1].set_aspect('equal')
     axs[0].autoscale(False)
+    axs[0].axis('off')
+    axs[1].axis('off')
     fig.tight_layout()
 
     itr = 0
@@ -147,12 +155,12 @@ if __name__ == "__main__":
     optimize = adam(data, gradfun, callback)
 
     ## set initialization to something generic
-    init_eta = make_gmm_global_natparam(
-        K, N, alpha=1., niw_conc=2., random=True)
-    init_phi = init_loglike([], N, P)
-    init_psi = init_recognize([], N, P)
+    init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=0.5)
+    init_phi = init_loglike([50, 50], N, P)
+    init_psi = init_recognize([50, 50], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 0., 1e-2, num_epochs=600, seq_len=50, num_samples=10)
+    # params = optimize(params, 1., 0., num_epochs=100, seq_len=150, num_samples=10)
+    params = optimize(params, 10., 1e-3, num_epochs=1000, seq_len=100, num_samples=10)

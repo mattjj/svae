@@ -114,18 +114,17 @@ def get_global_stats(label_stats, gaussian_stats):
 
 ### prior initialization
 
-def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random=False):
+def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random_scale=0.):
     def make_label_global_natparam(k, random):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
 
     def make_gaussian_global_natparam(n, random):
         nu, S, mu, kappa = n+niw_conc, (n+niw_conc)*np.eye(n), np.zeros(n), niw_conc
-        if random:
-            mu = mu + 0.25*npr.randn(*mu.shape)
+        mu = mu + random_scale * npr.randn(*mu.shape)
         return niw.standard_to_natural(nu, S, mu, kappa)
 
-    label_global_natparam = make_label_global_natparam(K, random)
-    gaussian_global_natparams = [make_gaussian_global_natparam(N, random) for _ in xrange(K)]
+    label_global_natparam = make_label_global_natparam(K, random_scale > 0)
+    gaussian_global_natparams = [make_gaussian_global_natparam(N, random_scale > 0) for _ in xrange(K)]
 
     return label_global_natparam, gaussian_global_natparams
 

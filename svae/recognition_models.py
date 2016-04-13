@@ -20,20 +20,21 @@ from util import sigmoid, add
 ### linear recognition function matching linear Gaussian SLDS parameterization
 
 def linear_recognize(x, psi):
-    C, D = psi
-    J, Jzx, Jxx, _ = pair_mean_to_natural(C, np.dot(D, D.T))
-    T = x.shape[0]
+    C, d = psi
 
-    J = np.tile(np.diag(J), (T, 1))
-    h = np.dot(x, Jzx.T)
-    logZ = np.zeros(x.shape[0])
+    sigmasq = d**2
+    mu = np.dot(x, C.T)
 
-    return make_tuple(J, h, logZ)
+    J = np.tile(1./sigmasq, (x.shape[0], 1))
+    h = J * mu
+
+    return make_tuple(-1./2*J, h, np.zeros(x.shape[0]))
 
 
 def init_linear_recognize(n, p, scale=1e-2):
     # return 1e-2*npr.randn(p, n), 1e-2*npr.randn(p, p)
-    return scale*npr.randn(p, n), scale*npr.randn(p, p)
+    # return scale*npr.randn(p, n), scale*npr.randn(p, p)
+    return np.eye(n), np.ones(p)
 
 
 ### mlp recognition function
@@ -67,8 +68,8 @@ def init_mlp_recognize(hdims, n, p, scale=1e-2):
 
 def resnet_recognize(x, psi):
     psi_linear, psi_mlp = psi
-    # return add(linear_recognize(x, psi_linear), mlp_recognize(x, psi_mlp, tanh_scale=100.))
-    return linear_recognize(x, psi_linear)
+    return add(linear_recognize(x, psi_linear), mlp_recognize(x, psi_mlp, tanh_scale=2.))
+    # return linear_recognize(x, psi_linear)
 
 
 def init_resnet_recognize(hdims, n, p):

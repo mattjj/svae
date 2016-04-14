@@ -125,8 +125,9 @@ if __name__ == "__main__":
     P = 2   # number of observation dimensions
 
     ## generate synthetic data
+    # data = make_gmm_data()
     num_clusters = 5
-    data = make_pinwheel_data(0.3, 0.05, num_clusters, 200, 0.25)
+    data = make_pinwheel_data(0.3, 0.05, num_clusters, 100, 0.25)
 
     # set prior natparam
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
@@ -156,10 +157,10 @@ if __name__ == "__main__":
 
     ## set initialization to something generic
     init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=5.)
-    init_phi = init_loglike([30, 30], N, P)
-    init_psi = init_recognize([30, 30], N, P)
+    init_phi = init_loglike([20, 20], N, P)
+    init_psi = init_recognize([20, 20], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 10., 1e-2, num_epochs=1000, seq_len=200, num_samples=10)
+    params = optimize(params, 10., 1e-2, num_epochs=1000, seq_len=len(data)//2, num_samples=10)

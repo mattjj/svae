@@ -32,9 +32,7 @@ def linear_recognize(x, psi):
 
 
 def init_linear_recognize(n, p, scale=1e-2):
-    # return 1e-2*npr.randn(p, n), 1e-2*npr.randn(p, p)
-    # return scale*npr.randn(p, n), scale*npr.randn(p, p)
-    return np.eye(n), np.ones(p)  # TODO put back
+    return scale*npr.randn(p, n), scale*npr.randn(p, p)
 
 
 ### mlp recognition function
@@ -72,8 +70,9 @@ def resnet_recognize(x, psi):
     # return linear_recognize(x, psi_linear)
 
 
-def init_resnet_recognize(hdims, n, p):
-    return init_linear_recognize(n, p), init_mlp_recognize(hdims, n, p)
+def init_resnet_recognize(hdims, n, p, identity=True):
+    linear_init = init_linear_recognize(n, p) if not identity else np.eye(n), np.ones(p)
+    return linear_init, init_mlp_recognize(hdims, n, p)
 
 
 ### meta

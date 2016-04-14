@@ -126,8 +126,8 @@ if __name__ == "__main__":
 
     ## generate synthetic data
     # data = make_gmm_data()
-    num_clusters = 5
-    data = make_pinwheel_data(0.3, 0.05, num_clusters, 100, 0.25)
+    num_clusters = 3
+    data = make_pinwheel_data(0.5, 0.025, num_clusters, 100, 0.3)
 
     # set prior natparam
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)

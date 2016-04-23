@@ -91,6 +91,7 @@ def gaussian_sample(local_natparams, num_samples):
     Js, hs = local_natparams[:2]
     return np.array([natural_sample(J, h, num_samples) for J, h in zip(Js, hs)])
 
+
 ### GMM global operations
 
 def gmm_global_vlb(global_natparam, prior_natparam):
@@ -111,6 +112,7 @@ def get_global_stats(label_stats, gaussian_stats):
     global_label_stats = np.sum(label_stats, axis=0)
     global_gaussian_stats = tuple(map(contract(w), gaussian_stats) for w in label_stats.T)
     return global_label_stats, global_gaussian_stats
+
 
 ### prior initialization
 

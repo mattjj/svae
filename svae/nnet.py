@@ -2,7 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 
-from util import sigmoid, compose
+from util import sigmoid, relu, compose
 
 
 def make_layer(activation):
@@ -14,6 +14,7 @@ def make_layer(activation):
 
 tanh_layer = make_layer(np.tanh)
 sigmoid_layer = make_layer(sigmoid)
+relu_layer = make_layer(relu)
 linear_layer = make_layer(lambda x: x)
 
 def init_layer(shape, scale=1e-2):

@@ -17,6 +17,10 @@ def sigmoid(x):
     return 1. / (1. + np.exp(-x))
 
 
+def relu(x):
+    return np.maximum(x, 0.)
+
+
 def rle(stateseq):
     pos, = np.where(np.diff(stateseq) != 0)
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))

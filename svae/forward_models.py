@@ -2,7 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 
 from recognition_models import init_mlp_recognize, init_linear_recognize
-from nnet import tanh_layer, linear_layer, compose
+from nnet import tanh_layer, linear_layer, compose, make_layer
 from util import sigmoid, add
 
 # size conventions:
@@ -43,11 +43,12 @@ init_linear_loglike = init_linear_recognize
 
 ### mlp gaussian forward model
 
-def mlp_decode(z, phi, tanh_scale=10., sigmoid_output=True):
+def mlp_decode(z, phi, tanh_scale=10., sigmoid_output=True, nonlinearity=np.tanh):
     nnet_params, ((W_mu, b_mu), (W_sigma, b_sigma)) = phi[:-2], phi[-2:]
     z = z if z.ndim == 3 else z[:,None,:]  # ensure z.shape == (T, K, n)
 
-    nnet = compose(tanh_layer(W, b) for W, b in nnet_params)
+    layer = make_layer(nonlinearity)
+    nnet = compose(layer(W, b) for W, b in nnet_params)
     mu = linear_layer(W_mu, b_mu)
     log_sigmasq = linear_layer(W_sigma, b_sigma)
 
@@ -59,8 +60,8 @@ def mlp_decode(z, phi, tanh_scale=10., sigmoid_output=True):
     return mu.reshape(shape), log_sigmasq.reshape(shape)
 
 
-def mlp_loglike(x, z, phi, tanh_scale=10.):
-    mu, log_sigmasq = mlp_decode(z, phi, tanh_scale)
+def mlp_loglike(x, z, phi, tanh_scale=10., nonlinearity=np.tanh):
+    mu, log_sigmasq = mlp_decode(z, phi, tanh_scale, nonlinearity=nonlinearity)
     return _diagonal_gaussian_loglike(x, mu, log_sigmasq)
 
 
@@ -74,13 +75,15 @@ def init_mlp_loglike(hdims, n, p, scale=1e-2):
 
 ### resnet forward model
 
-def resnet_loglike(x, z, phi):
-    mu, log_sigmasq = resnet_decode(z, phi)
+def resnet_loglike(x, z, phi, nonlinearity=np.tanh):
+    mu, log_sigmasq = resnet_decode(z, phi, nonlinearity)
     return _diagonal_gaussian_loglike(x, mu, log_sigmasq)
 
-def resnet_decode(z, phi):
+def resnet_decode(z, phi, nonlinearity=np.tanh):
     phi_linear, phi_mlp = phi
-    return add(linear_decode(z, phi_linear), mlp_decode(z, phi_mlp, tanh_scale=2., sigmoid_output=False))
+    return add(linear_decode(z, phi_linear),
+               mlp_decode(z, phi_mlp, tanh_scale=2., sigmoid_output=False,
+                          nonlinearity=nonlinearity))
     # return linear_decode(z, phi_linear)
 
 def init_resnet_loglike(hdims, n, p):

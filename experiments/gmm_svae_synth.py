@@ -3,9 +3,11 @@ import numpy as np
 import numpy.random as npr
 import matplotlib.pyplot as plt
 from functools import partial
+import cPickle as pickle
 
 from svae.svae import make_gradfun
 from svae.optimizers import adam
+from svae.util import relu
 
 from svae.recognition_models import mlp_recognize, init_mlp_recognize, \
     resnet_recognize, init_resnet_recognize
@@ -19,7 +21,7 @@ from svae.hmm import dirichlet
 
 recognize = resnet_recognize
 loglike = resnet_loglike
-decode = resnet_decode
+decode =resnet_decode
 init_recognize = init_resnet_recognize
 init_loglike = init_resnet_loglike
 
@@ -35,6 +37,10 @@ def decode_mean(z, phi):
     mu, log_sigmasq = decode(z, phi)
     assert mu.ndim == 2 or mu.shape[1] == 1
     return mu.mean(axis=1)
+
+def save(itr, data, params):
+    with open('gmm_svae_synth_params.pkl', 'a') as outfile:
+        pickle.dump(params, outfile, protocol=-1)
 
 def plot(itr, axs, data, params):
     natparam, phi, psi = params
@@ -86,7 +92,7 @@ def plot(itr, axs, data, params):
 
     ## save plot
 
-    plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150)
+    plt.savefig('figures/running_gmm_{:04d}.png'.format(itr), dpi=72)
     # plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150, transparent=True)
     # plt.pause(0.0001)
 
@@ -126,10 +132,10 @@ if __name__ == "__main__":
 
     ## generate synthetic data
     # data = make_gmm_data()
-    data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
+    data = make_pinwheel_data(0.3, 0.05, 3, 200, 0.4)
 
     # set prior natparam
-    prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
+    prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=0.5)
 
     # build svae gradient function
     gradfun = make_gradfun(run_inference, recognize, loglike, prior_natparam)
@@ -150,16 +156,17 @@ if __name__ == "__main__":
         itr += 1
         print('{}: {}'.format(itr, np.mean(vals)))
         plot(itr, axs, data, params)
+        save(itr, data, params)
 
     ## instantiate optimizer
     optimize = adam(data, gradfun, callback)
 
     ## set initialization to something generic
     init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=5.)
-    init_phi = init_loglike([20, 20], N, P)
+    init_phi = init_loglike([40, 40], N, P)
     init_psi = init_recognize([20, 20], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 10., 5e-3, num_epochs=1000, seq_len=250, num_samples=5)
+    params = optimize(params, 1e-3, 1e-3, num_epochs=1000, seq_len=250, num_samples=5)

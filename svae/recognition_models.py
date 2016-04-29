@@ -4,7 +4,7 @@ import autograd.numpy.random as npr
 from autograd.util import make_tuple
 from functools import partial
 
-from nnet import tanh_layer, linear_layer, compose, init_layer
+from nnet import tanh_layer, linear_layer, compose, init_layer, make_layer
 from lds.gaussian import pair_mean_to_natural
 
 from util import sigmoid, add
@@ -39,12 +39,13 @@ def init_linear_recognize(n, p, scale=1e-2):
 
 ### mlp recognition function
 
-def mlp_recognize(x, psi, tanh_scale=10.):
+def mlp_recognize(x, psi, tanh_scale=10., nonlinearity=np.tanh):
     nnet_params, ((W_h, b_h), (W_J, b_J)) = psi[:-2], psi[-2:]
     T, p = x.shape[0], b_h.shape[0]
     shape = x.shape[:-1] + (-1,)
 
-    nnet = compose(tanh_layer(W, b) for W, b in nnet_params)
+    layer = make_layer(nonlinearity)
+    nnet = compose(layer(W, b) for W, b in nnet_params)
     h = linear_layer(W_h, b_h)
     log_J = linear_layer(W_J, b_J)
 
@@ -66,9 +67,10 @@ def init_mlp_recognize(hdims, n, p, scale=1e-2):
 
 ### residual network recognize
 
-def resnet_recognize(x, psi):
+def resnet_recognize(x, psi, nonlinearity=np.tanh):
     psi_linear, psi_mlp = psi
-    return add(linear_recognize(x, psi_linear), mlp_recognize(x, psi_mlp, tanh_scale=2.))
+    return add(linear_recognize(x, psi_linear),
+               mlp_recognize(x, psi_mlp, tanh_scale=2., nonlinearity=nonlinearity))
     # return linear_recognize(x, psi_linear)
 
 

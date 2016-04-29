@@ -86,7 +86,7 @@ def plot(itr, axs, data, params):
     # plot_or_update(0, ax_data, reconstruction[:,0], reconstruction[:,1],
     #                color='b', marker='x', linestyle='')
 
-    del ax_data.collections[1]  # delete old hexbin artist
+    ax_data.collections[1:] = []
     xlim, ylim = ax_data.get_xlim(), ax_data.get_ylim()
     for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
         ## 
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
 
     fig, axs = make_figure()
-    with open('gmm_svae_synth_params2.pkl') as infile:
+    with open('gmm_svae_synth_params.pkl') as infile:
         try:
             for itr in count():
                 pickle.load(infile)  # TODO remove me

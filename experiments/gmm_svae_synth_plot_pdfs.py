@@ -74,16 +74,16 @@ def set_border_around_data(ax, data, border=0.1):
     ax.set_ylim([ymin - (ymax - ymin) * border,
                  ymax + (ymax - ymin) * border])
 
+def generate_ellipse(mu, Sigma):
+    t = np.hstack([np.arange(0, 2*np.pi, 0.01),0])
+    circle = np.vstack([np.sin(t), np.cos(t)])
+    ellipse = 2. * np.dot(np.linalg.cholesky(Sigma), circle)
+    return ellipse[0] + mu[0], ellipse[1] + mu[1]
+
 def plot(axs, data, params):
     natparam, phi, psi = params
     ax_data, ax_latent = axs
     K = len(natparam[1])
-
-    def generate_ellipse(mu, Sigma):
-        t = np.hstack([np.arange(0, 2*np.pi, 0.01),0])
-        circle = np.vstack([np.sin(t), np.cos(t)])
-        ellipse = 2. * np.dot(np.linalg.cholesky(Sigma), circle)
-        return ellipse[0] + mu[0], ellipse[1] + mu[1]
 
     def plot_or_update(idx, ax, x, y, alpha=1, **kwargs):
         if len(ax.lines) > idx:
@@ -150,7 +150,20 @@ def plot_data(data):
     plt.close()
 
 def plot_gmm(filename, data):
-    pass
+    def load_gmm_params(filename):
+        with open(filename) as f:
+            params = pickle.load(f)
+        return params
+
+    params = load_gmm_params(filename)
+    fig, ax = make_figure()
+    ax.plot(data[:,0], data[:,1], 'k.')
+    for idx, (weight, mu, Sigma) in enumerate(sorted(params, key=itemgetter(0))):
+        x, y = generate_ellipse(mu, Sigma)
+        ax.plot(x, y, alpha=min(1., len(params)*weight/2),
+                linestyle='-', linewidth=2, color=colors[idx % len(colors)])
+    save_figure(fig, 'figures/mainfig_mix_plaingmm.png')
+
 
 def plot_vae_density(filename, data):
     def load_vae_density_params(filename):
@@ -190,6 +203,6 @@ if __name__ == "__main__":
     npr.seed(1)
     data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
     plot_data(data)
-    # plot_gmm('gmm_synth_params.pkl', data)
+    plot_gmm('pinwheel_gmm.pkl', data)
     plot_vae_density('warped_mixture_density_network.pkl', data)
     plot_gmm_svae('gmm_svae_synth_params.pkl', data)

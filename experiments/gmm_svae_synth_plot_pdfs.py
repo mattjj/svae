@@ -12,7 +12,7 @@ from operator import itemgetter
 from gmm_svae_synth import *
 
 gridsize=75
-num_samples=200
+num_samples=2000
 
 colors = np.array([
 [106,61,154],  # Dark colors

@@ -1,7 +1,7 @@
 *.pyc
 *.aux
 *.log
-*.png
+/figures/*.png
 *.dvi
 *.fdb_latexmk
 *.fls
@@ -14,3 +14,4 @@
 *.so
 *.lprof
 /build
+/experiments/*_params.pkl

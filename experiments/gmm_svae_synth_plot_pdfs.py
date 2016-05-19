@@ -8,8 +8,12 @@ from cycler import cycler
 from matplotlib.colors import LinearSegmentedColormap
 from scipy.stats import norm
 from operator import itemgetter
+from functools import partial
 
-from gmm_svae_synth import *
+from gmm_svae_synth import decode as gmm_decode, make_pinwheel_data, normalize, \
+    dirichlet, niw, encode_mean, decode_mean
+from svae.forward_models import mlp_decode
+mlp_decode = partial(mlp_decode, tanh_scale=1000., sigmoid_output=False)
 
 gridsize=75
 num_samples=2000
@@ -50,7 +54,7 @@ def plot_transparent_hexbin(ax, func, xlims, ylims, gridsize, color):
               cmap=new_cmap, linewidths=0., edgecolors='none',
               gridsize=gridsize, vmin=0., vmax=1., zorder=1)
 
-def decode_density(latent_locations, phi, weight=1.):
+def decode_density(latent_locations, phi, decode, weight=1.):
     mu, log_sigmasq = decode(latent_locations, phi)
     sigmasq = np.exp(log_sigmasq)
 
@@ -70,7 +74,7 @@ def set_border_around_data(ax, data, border=0.1):
     ax.set_ylim([ymin - (ymax - ymin) * border,
                  ymax + (ymax - ymin) * border])
 
-def plot(itr, axs, data, params):
+def plot(axs, data, params):
     natparam, phi, psi = params
     ax_data, ax_latent = axs
     K = len(natparam[1])
@@ -106,7 +110,7 @@ def plot(itr, axs, data, params):
     for idx, (weight, (mu, Sigma)) in enumerate(
             sorted(zip(weights, components), key=itemgetter(0))):
         samples = npr.RandomState(0).multivariate_normal(mu, Sigma, num_samples)
-        density = decode_density(samples, phi, 75. * weight)
+        density = decode_density(samples, phi, gmm_decode, 75. * weight)
         plot_transparent_hexbin(ax_data, density, xlim, ylim, gridsize, colors[idx % len(colors)])
 
 
@@ -125,57 +129,67 @@ def plot(itr, axs, data, params):
     ax_latent.relim()
     ax_latent.autoscale_view(True, True, True)
 
-
 def make_figure():
-    fig1, ax1 = plt.subplots(1, 1, figsize=(4, 4))
-    fig2, ax2 = plt.subplots(1, 1, figsize=(4, 4))
-    #ax2.set_aspect('equal')
-    #ax1.set_aspect('equal')
-    #ax1.autoscale(False)
-    #ax2.autoscale(False)
-    ax1.axis('off')
-    ax2.axis('off')
-    fig1.tight_layout()
-    fig2.tight_layout()
+    fig, ax = plt.subplots(figsize=(4, 4))
+    ax.axis('off')
+    fig.tight_layout()
+    fig.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+    ax.margins(0, 0)
+    ax.xaxis.set_major_locator(plt.NullLocator())
+    ax.yaxis.set_major_locator(plt.NullLocator())
+    return fig, ax
 
-    return fig1, fig2, ax1, ax2
+def save_figure(fig, filename):
+    fig.savefig(filename, dpi=150, bbox_inches='tight', pad_inches=0)
+    print 'saved {}'.format(filename)
+
+def plot_data(data):
+    fig, ax = make_figure()
+    ax.plot(data[:,0], data[:,1], 'k.')
+    save_figure(fig, 'figures/mainfig_mix_data.png')
+    plt.close()
+
+def plot_gmm(filename, data):
+    pass
+
+def plot_vae_density(filename, data):
+    def load_vae_density_params(filename):
+        with open(filename) as f:
+            _, phi = pickle.load(f)
+        return phi
+
+    phi = load_vae_density_params(filename)
+    fig, ax = make_figure()
+    data = 1./10 * data  # density network was fit to unscaled data
+    ax.plot(data[:,0], data[:,1], 'k.')
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    samples = npr.RandomState(0).randn(2*num_samples, 2)
+    density = decode_density(samples, phi, mlp_decode, weight=0.6)
+    plot_transparent_hexbin(ax, density, xlim, ylim, gridsize, colors[0])
+    save_figure(fig, 'figures/mainfig_mix_densitynetwork.png')
+
+def plot_gmm_svae(filename, data):
+    def load_gmm_svae_params(filename):
+        with open(filename) as f:
+            try:
+                for _ in range(20000): gmm_svae_params = pickle.load(f)
+            except EOFError: pass
+            else: print 'did not finish loading {}'.format(filename)
+        return gmm_svae_params
+
+    gmm_svae_params = load_gmm_svae_params(filename)
+    fig1, ax1 = make_figure()
+    fig2, ax2 = make_figure()
+    plot((ax1, ax2), data, gmm_svae_params)
+    save_figure(fig1, 'figures/mainfig_mix_observed.png')
+    save_figure(fig2, 'figures/mainfig_mix_latent.png')
+    plt.close('all')
 
 
 if __name__ == "__main__":
     npr.seed(1)
     data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
-
-    fig1, fig2, ax1, ax2 = make_figure()
-    with open('gmm_svae_synth_params.pkl') as infile:
-        for itr in range(20000):
-            try:
-                stuff = pickle.load(infile)
-                print "."
-            except EOFError:
-                pass
-
-        print "Plotting..."
-        plot(itr, (ax1, ax2), data, stuff)
-
-        print "Saving..."
-        filename = 'figures/mainfig_mix_observed.png'
-        plt.gca().set_axis_off()
-        plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0,
-            hspace = 0, wspace = 0)
-        plt.margins(0,0)
-        plt.gca().xaxis.set_major_locator(plt.NullLocator())
-        plt.gca().yaxis.set_major_locator(plt.NullLocator())
-        fig1.savefig(filename, dpi=150, bbox_inches='tight', pad_inches=0)
-        print 'saved {}'.format(filename)
-
-        filename = 'figures/mainfig_mix_latent.png'
-        plt.gca().set_axis_off()
-        plt.subplots_adjust(top = 1, bottom = 0, right = 1, left = 0,
-                    hspace = 0, wspace = 0)
-        plt.margins(0,0)
-        plt.gca().xaxis.set_major_locator(plt.NullLocator())
-        plt.gca().yaxis.set_major_locator(plt.NullLocator())
-        fig2.savefig(filename, dpi=150, bbox_inches='tight', pad_inches=0)
-        print 'saved {}'.format(filename)
-
-    print "Done"
+    plot_data(data)
+    # plot_gmm('gmm_synth_params.pkl', data)
+    plot_vae_density('warped_mixture_density_network.pkl', data)
+    plot_gmm_svae('gmm_svae_synth_params.pkl', data)

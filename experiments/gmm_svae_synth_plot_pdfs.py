@@ -147,15 +147,15 @@ if __name__ == "__main__":
 
     fig1, fig2, ax1, ax2 = make_figure()
     with open('gmm_svae_synth_params.pkl') as infile:
-        for itr in range(500):
+        for itr in range(20000):
             try:
-                pickle.load(infile)
+                stuff = pickle.load(infile)
                 print "."
             except EOFError:
                 pass
 
         print "Plotting..."
-        plot(itr, (ax1, ax2), data, pickle.load(infile))
+        plot(itr, (ax1, ax2), data, stuff)
 
         print "Saving..."
         filename = 'figures/mainfig_mix_observed.png'

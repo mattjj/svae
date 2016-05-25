@@ -1,4 +1,4 @@
-Code for [Composing graphical models with neural networks for structured representations and fast inference](http://arxiv.org/abs/1603.06277). It looks something like [vae](https://github.com/mattjj/variational_autoencoder) + [slds](https://github.com/mattjj/pyhsmm-slds).
+Code for [Composing graphical models with neural networks for structured representations and fast inference](http://arxiv.org/abs/1603.06277), a.k.a. structured variational autoencoders.
 
 
 ###Abstract

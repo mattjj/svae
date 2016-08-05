@@ -10,18 +10,19 @@ from svae.optimizers import adam
 from svae.util import relu
 
 from svae.recognition_models import mlp_recognize, init_mlp_recognize, \
-    resnet_recognize, init_resnet_recognize
+    resnet_recognize, init_resnet_recognize, \
+    linear_recognize, init_linear_recognize
 from svae.forward_models import mlp_decode, mlp_loglike, init_mlp_loglike, \
-    resnet_decode, resnet_loglike, init_resnet_loglike
+    resnet_decode, resnet_loglike, init_resnet_loglike, \
+    linear_decode, linear_loglike, init_linear_loglike
 
 from svae.models.gmm_svae import run_inference, make_gmm_global_natparam, optimize_local_meanfield
 from svae.lds import niw
 from svae.hmm import dirichlet
 
-
 recognize = resnet_recognize
 loglike = resnet_loglike
-decode =resnet_decode
+decode = resnet_decode
 init_recognize = init_resnet_recognize
 init_loglike = init_resnet_loglike
 
@@ -92,7 +93,7 @@ def plot(itr, axs, data, params):
 
     ## save plot
 
-    plt.savefig('figures/running_gmm_{:04d}.png'.format(itr), dpi=72)
+    plt.savefig('figures/running_gmm.png'.format(itr), dpi=150)
     # plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150, transparent=True)
     # plt.pause(0.0001)
 
@@ -131,9 +132,8 @@ if __name__ == "__main__":
     P = 2   # number of observation dimensions
 
     ## generate synthetic data
-    # data = make_gmm_data()
-    num_clusters = 3
-    data = make_pinwheel_data(0.5, 0.025, num_clusters, 100, 0.3)
+    num_clusters = 5
+    data = make_pinwheel_data(0.3, 0.05, num_clusters, 100, 0.25)
 
     # set prior natparam
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=0.5)
@@ -163,11 +163,11 @@ if __name__ == "__main__":
     optimize = adam(data, gradfun, callback)
 
     ## set initialization to something generic
-    init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=5.)
+    init_eta = make_gmm_global_natparam(K, N, alpha=1./5, niw_conc=2., random_scale=5.)
     init_phi = init_loglike([40, 40], N, P)
-    init_psi = init_recognize([20, 20], N, P)
+    init_psi = init_recognize([40, 40], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 1e-3, 1e-3, num_epochs=1000, seq_len=250, num_samples=5)
+    params = optimize(params, 10., 1e-3, num_epochs=1000, seq_len=250, num_samples=1)

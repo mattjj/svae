@@ -163,11 +163,11 @@ if __name__ == "__main__":
     optimize = adam(data, gradfun, callback)
 
     ## set initialization to something generic
-    init_eta = make_gmm_global_natparam(K, N, alpha=1./5, niw_conc=2., random_scale=5.)
+    init_eta = make_gmm_global_natparam(K, N, alpha=1./10, niw_conc=2., random_scale=5.)
     init_phi = init_loglike([40, 40], N, P)
     init_psi = init_recognize([40, 40], N, P)
     params = init_eta, init_phi, init_psi
 
     ## optimize
     plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 10., 5e-3, num_epochs=1000, seq_len=50, num_samples=1)
+    params = optimize(params, 10., 1e-2, num_epochs=1000, seq_len=50, num_samples=1)

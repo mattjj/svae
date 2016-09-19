@@ -157,7 +157,7 @@ if __name__ == "__main__":
         itr += 1
         print('{}: {}'.format(itr, np.mean(vals)))
         plot(itr, axs, data, params)
-        # save(itr, data, params)
+        save(itr, data, params)
 
     ## instantiate optimizer
     optimize = adam(data, gradfun, callback)

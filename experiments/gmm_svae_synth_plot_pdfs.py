@@ -220,6 +220,6 @@ if __name__ == "__main__":
     npr.seed(1)
     data = make_pinwheel_data(0.3, 0.05, 5, 100, 0.25)
     # plot_data(data)
-    plot_gmm('pinwheel_gmm.pkl', data, density_version=True)
+    # plot_gmm('pinwheel_gmm.pkl', data, density_version=True)
     # plot_vae_density('warped_mixture_density_network.pkl', data)
-    # plot_gmm_svae('gmm_svae_synth_params.pkl', data)
+    plot_gmm_svae('gmm_svae_synth_params.pkl', data)

@@ -40,7 +40,7 @@ def mlp(layer_specs, params, inputs):
     return reshape(out) if not isinstance(out, tuple) else map(reshape, out)
 
 
-### MLPs that output Gaussian parameters
+### special output layers to output Gaussian parameters
 
 def _split_inputs(inputs):
     dim = inputs.shape[-1] // 2
@@ -60,3 +60,26 @@ def gaussian_info(inputs, tanh_scale=False):
     J = -1./2 * np.exp(tanh_scale * np.tanh(J_input / tanh_scale)) \
         if tanh_scale else -1./2 * np.exp(J_input)
     return make_tuple(J, h)
+
+
+### our version of a resnet: parameterize as an affine function plus MLP
+
+def _rand_projection(d_in, d_out):
+    d1, d2 = (d_in, d_out) if d_in > d_out else (d_out, d_in)
+    Q = np.linalg.qr(npr.randn(d1, d2))[0]
+    return Q if d_in > d_out else Q.T
+
+def init_resnet(d_in, layer_specs):
+    d_out = layer_specs[-1][0]
+    W, b = _rand_projection(d_in, d_out), np.zeros(d_out)
+    mlp_params = init_mlp(d_in, layer_specs)
+    return mlp_params, (W, b)
+
+@curry
+def resnet(layer_specs, params, inputs):
+    mlp_params, (W, b) = params
+    eval_mlp = mlp(layer_specs, mlp_params)
+    eval_linear = lambda inputs: np.reshape(
+        np.dot(np.reshape(inputs, (-1, inputs.shape[-1])), W) + b,
+        inputs.shape[:-1] + (-1,))
+    return eval_mlp(inputs) + eval_linear(inputs)

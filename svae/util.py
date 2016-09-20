@@ -11,7 +11,7 @@ from autograd.container_types import TupleNode, ListNode
 from autograd.core import getval
 
 
-### misc
+### neural nets
 
 def sigmoid(x):
     return 1. / (1. + np.exp(-x))
@@ -21,10 +21,13 @@ def relu(x):
     return np.maximum(x, 0.)
 
 
+### misc
+
 def rle(stateseq):
     pos, = np.where(np.diff(stateseq) != 0)
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))
     return stateseq[pos[:-1]], np.diff(pos)
+
 
 ### monads
 
@@ -68,7 +71,11 @@ def rot2D(theta):
 ### functions
 
 def compose(funcs):
-    return reduce(lambda f, g: lambda x: g(f(x)), funcs, lambda x: x)
+    def composition(x):
+        for f in funcs:
+            x = f(x)
+        return x
+    return composition
 
 
 ### lists

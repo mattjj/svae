@@ -3,6 +3,7 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 from autograd.util import make_tuple
 from toolz import curry
+from collections import defaultdict
 
 from util import compose, sigmoid
 
@@ -17,8 +18,9 @@ def layer(nonlin, W, b, inputs):
 def init_layer_random(d_in, d_out, scale):
     return scale*npr.randn(d_in, d_out), scale*npr.randn(d_out)
 
-def init_layer(d_in, d_out, init_fn=init_layer_random(scale=1e-2)):
-    return init_fn(d_in, d_out)
+def init_layer_partial_isometry(d_in, d_out):
+    d = max(d_in, d_out)
+    return np.linalg.qr(npr.randn(d, d))[0][:d_in,:d_out], npr.randn(d_out)
 
 identity = lambda x: x
 
@@ -36,8 +38,8 @@ def mlp(layer_specs, params, inputs):
     eval_mlp = compose(layer(nonlin, W, b)
                        for nonlin, (W, b) in zip(nonlins, params))
     out = eval_mlp(np.reshape(inputs, (-1, inputs.shape[-1])))
-    reshape = lambda out: np.reshape(out, inputs.shape[:-1] + (-1,))
-    return reshape(out) if not isinstance(out, tuple) else map(reshape, out)
+    unravel = lambda out: np.reshape(out, inputs.shape[:-1] + (-1,))
+    return unravel(out) if not isinstance(out, tuple) else map(unravel, out)
 
 
 ### special output layers to output Gaussian parameters
@@ -62,24 +64,47 @@ def gaussian_info(inputs, tanh_scale=False):
     return make_tuple(J, h)
 
 
-### our version of a resnet: parameterize as an affine function plus MLP
+### turn a gaussian_mean MLP into a log likelihood function
 
-def _rand_projection(d_in, d_out):
-    d1, d2 = (d_in, d_out) if d_in > d_out else (d_out, d_in)
-    Q = np.linalg.qr(npr.randn(d1, d2))[0]
-    return Q if d_in > d_out else Q.T
+def _diagonal_gaussian_loglike(x, mu, log_sigmasq):
+    T, K, p = mu.shape
+    assert x.shape == (T, p)
+    return -T*p/2.*np.log(2*np.pi) + (-1./2*np.sum((x[:,None,:]-mu)**2 / np.exp(log_sigmasq))
+            - 1/2.*np.sum(log_sigmasq)) / K
+
+def make_loglike(gaussian_mlp):
+    def loglike(targets, inputs, params):
+        mu, log_sigmasq = gaussian_mlp(params, inputs)
+        return _diagonal_gaussian_loglike(targets, mu, log_sigmasq)
+    return loglike
+
+
+### our version of Gaussian resnets
+# TODO this is broken below here
+
+gaussian_mlp_types = {gaussian_mean.func: 'mean', gaussian_info.func: 'info'}
+
+def gaussian_mlp_type(layer_specs):
+    return gaussian_mlp_types.get(layer_specs[-1][1].func, 'none')
 
 def init_resnet(d_in, layer_specs):
-    d_out = layer_specs[-1][0]
-    W, b = _rand_projection(d_in, d_out), np.zeros(d_out)
-    mlp_params = init_mlp(d_in, layer_specs)
-    return mlp_params, (W, b)
+    if gaussian_mlp_type(layer_specs) == 'none':
+        d_out = layer_specs[-1][0]
+        randn_partial_isometry(d_in, d_out), np.zeros(d_out)
+    else:
+        d_out = layer_specs[-1][0] // 2
+        return rand_partial_isometry(d_in, d_out), np.zeros(d_out), np.zeros(d_out)
 
 @curry
-def resnet(layer_specs, params, inputs):
-    mlp_params, (W, b) = params
-    eval_mlp = mlp(layer_specs, mlp_params)
-    eval_linear = lambda inputs: np.reshape(
-        np.dot(np.reshape(inputs, (-1, inputs.shape[-1])), W) + b,
-        inputs.shape[:-1] + (-1,))
-    return eval_mlp(inputs) + eval_linear(inputs)
+def gresnet(layer_specs, params, inputs):
+    assert is_gaussian_mlp(layer_specs)
+    ravel = lambda x: np.reshape(x, (-1, inputs.shape[-1]))
+    unravel = lambda x: np.reshape(x, inputs.shape[:-1] + (-1,))
+
+    mlp_params, (W_mu, b_mu, log_sigmasq_res) = params
+    mu_mlp, log_sigmasq_mlp = mlp(layer_specs, mlp_params, inputs)
+    mu_res = unravel(np.dot(ravel(inputs), W_mu) + b_mu)
+
+    return mu_mlp + mu_res, log_sigmasq_mlp + log_sigmasq_res
+
+# maybe we can just switch on which type it is

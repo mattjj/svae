@@ -2,14 +2,13 @@ from __future__ import division
 from toolz import curry
 from autograd import value_and_grad as vgrad
 from autograd.util import flatten
-from svae.util import flat, split_into_batches
+from util import flat, split_into_batches
 
 @curry
 def make_gradfun(run_inference, recognize, loglike, pgm_prior, data,
                  batch_size, num_samples, natgrad_scale=1.):
     pgm_prior, unflat = flatten(pgm_prior)
     data_batches, num_batches = split_into_batches(data, batch_size)
-
     saved = lambda: None
 
     def mc_elbo(pgm_params, loglike_params, recogn_params, i):

@@ -116,7 +116,7 @@ def get_global_stats(label_stats, gaussian_stats):
 
 ### prior initialization
 
-def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random_scale=0.):
+def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     def make_label_global_natparam(k, random):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
 
@@ -141,10 +141,10 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
 
     stats = get_global_stats(label_stats, gaussian_stats)
     samples = gaussian_sample(gaussian_local_natparam, num_samples)
-    local_vlb = label_vlb + gaussian_vlb
-    global_vlb = gmm_global_vlb(global_natparam, prior_natparam)
+    local_kl = -label_vlb - gaussian_vlb
+    global_kl = -gmm_global_vlb(global_natparam, prior_natparam)
 
-    return samples, unbox(stats), global_vlb, local_vlb
+    return samples, unbox(stats), global_kl, local_kl
 
 def make_encoder_decoder(recognize, decode):
     def encode_mean(data, natparam, recogn_params):

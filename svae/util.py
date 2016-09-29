@@ -2,6 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.linalg as spla
+from autograd.util import flatten
 import itertools
 import operator
 from functools import partial
@@ -27,6 +28,8 @@ def rle(stateseq):
     pos, = np.where(np.diff(stateseq) != 0)
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))
     return stateseq[pos[:-1]], np.diff(pos)
+
+flat = lambda x: flatten(x)[0]
 
 
 ### functions and monads

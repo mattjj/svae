@@ -1,14 +1,13 @@
 from __future__ import division
+from toolz import curry
 from autograd import value_and_grad as vgrad
 from autograd.util import flatten
-from toolz import curry
-
-flat = lambda x: flatten(x)[0]
+from svae.util import flat
 
 @curry
 def make_gradfun(run_inference, recognize, loglike, pgm_prior, data,
                  batch_size, num_samples, natgrad_scale=1.):
-    pgm_prior_flat, unflatten = flatten(pgm_prior)
+    pgm_prior, unflat = flatten(pgm_prior)
     # TODO split up data here
 
     saved = lambda: None
@@ -25,7 +24,7 @@ def make_gradfun(run_inference, recognize, loglike, pgm_prior, data,
         objective = lambda (loglike_params, recogn_params): \
             -mc_elbo(pgm_params, loglike_params, recogn_params, i)
         vlb, (loglike_grad, recogn_grad) = vgrad(objective)((loglike_params, recogn_params))
-        pgm_natgrad = unflatten(pgm_prior_flat + num_batches*flat(stats) - flat(pgm_params))
+        pgm_natgrad = unflat(natgrad_scale * (pgm_prior + num_batches*flat(stats) - flat(pgm_params)))
         return vlb, (pgm_natgrad, loglike_grad, recogn_grad)
 
     return gradfun

@@ -1,11 +1,11 @@
 from __future__ import print_function
 import numpy as np
 import numpy.random as npr
+
+# TODO delete this file!
+
 from util import add, scale, zeros_like, square, sqrt, div, add_scalar, mul, concat, \
     get_num_datapoints, split_into_batches
-
-
-# TODO just use autograd's optimizers?
 
 default_callback = lambda epoch, vals, natgrad, allparams: print(np.mean(vals))
 
@@ -42,3 +42,4 @@ def adam(data, val_and_grad, callback=default_callback):
 
         return allparams
     return adam
+

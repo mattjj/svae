@@ -5,6 +5,7 @@ import autograd.scipy.linalg as spla
 import itertools
 import operator
 from functools import partial
+from toolz import curry
 
 # autograd internals
 from autograd.container_types import TupleNode, ListNode
@@ -102,12 +103,13 @@ def flatmap(f, container):
                      dict: lambda f, dct: flatten(map(f, dct.values()))}
     return mappers[type(container)](f, container)
 
+@curry
 def split_array(arr, length):
     truncate_to_multiple = lambda arr, k: arr[:k*(len(arr) // k)]
     return np.split(truncate_to_multiple(arr, length), len(arr) // length)
 
 def split_into_batches(data, seq_len, num_seqs=None, permute=True):
-    batches = npr.permutation(flatmap(partial(split_array, length=seq_len), data))
+    batches = npr.permutation(flatmap(split_array(length=seq_len), data))
     if num_seqs is None:
         return batches, len(batches)
     chunks = (batches[i*num_seqs:(i+1)*num_seqs] for i in xrange(len(batches) // num_seqs))

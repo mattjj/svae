@@ -154,7 +154,7 @@ def make_encoder_decoder(recognize, decode):
         return Ex
 
     def decode_mean(z, phi):
-        mu, log_sigmasq = decode(z, phi)
+        mu, _ = decode(z, phi)
         return mu.mean(axis=1)
 
     return encode_mean, decode_mean

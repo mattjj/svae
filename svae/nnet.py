@@ -5,7 +5,7 @@ from autograd.util import make_tuple
 from toolz import curry
 from collections import defaultdict
 
-from util import compose, sigmoid, relu, identity, log1pexp
+from util import compose, sigmoid, relu, identity, log1pexp, isarray
 
 
 ### util
@@ -54,7 +54,7 @@ def _mlp(nonlinearities, params, inputs):
     eval_mlp = compose(layer(nonlin, W, b)
                        for nonlin, (W, b) in zip(nonlinearities, params))
     out = eval_mlp(ravel(inputs))
-    return unravel(out) if not isinstance(out, tuple) else map(unravel, out)
+    return unravel(out) if isarray(out) else map(unravel, out)
 
 def init_mlp(d_in, layer_specs, **kwargs):
     dims = [d_in] + [l[0] for l in layer_specs]
@@ -95,12 +95,12 @@ def _gresnet(mlp_type, mlp, params, inputs):
         mu_mlp, sigmasq_mlp = mlp(mlp_params, inputs)
         mu_res = unravel(np.dot(ravel(inputs), W) + b1)
         sigmasq_res = log1pexp(b2)
-        return mu_mlp + mu_res, sigmasq_mlp + sigmasq_res
+        return make_tuple(mu_mlp + mu_res, sigmasq_mlp + sigmasq_res)
     else:
         J_mlp, h_mlp = mlp(mlp_params, inputs)
         J_res = log1pexp(b2)
         h_res = unravel(np.dot(ravel(inputs), W) + b1)
-        return J_mlp + J_res, h_mlp + h_res
+        return make_tuple(J_mlp + J_res, h_mlp + h_res)
 
 def init_gresnet(d_in, layer_specs):
     d_out = layer_specs[-1][0] // 2

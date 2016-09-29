@@ -30,6 +30,7 @@ def rle(stateseq):
     return stateseq[pos[:-1]], np.diff(pos)
 
 flat = lambda x: flatten(x)[0]
+isarray = lambda x: hasattr(x, 'ndim')
 
 
 ### functions and monads

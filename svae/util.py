@@ -94,7 +94,7 @@ def roundrobin(*iterables):
             nexts = itertools.cycle(itertools.islice(nexts, pending))
 
 
-### batches
+### splitting data into batches
 
 def get_num_datapoints(x):
     return x.shape[0] if isinstance(x, np.ndarray) else sum(map(get_num_datapoints, x))

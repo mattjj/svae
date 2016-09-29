@@ -2,10 +2,8 @@ from __future__ import division, print_function
 import numpy as np
 import numpy.random as npr
 from autograd.examples.optimizers import adam
-
 from svae.svae import make_gradfun
 from svae.nnet import init_gresnet, make_loglike
-
 from svae.models.gmm import run_inference, init_pgm_param, make_encoder_decoder
 
 def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, rate):

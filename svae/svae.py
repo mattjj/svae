@@ -1,22 +1,25 @@
 from __future__ import division
 from autograd import value_and_grad as vgrad
-from util import add, sub, contract, scale, unbox
-
 
 def make_gradfun(run_inference, recognize, loglike, eta_prior):
     saved = lambda: None
 
-    def mc_vlb(eta, phi, psi, y_n, N, L):
-        nn_potentials = recognize(y_n, psi)
-        samples, stats, global_vlb, local_vlb = run_inference(
-            eta_prior, eta, nn_potentials, num_samples=L)
-        saved.stats = scale(N, unbox(stats))
-        return global_vlb + N * (local_vlb + loglike(y_n, samples, phi))
+    def mc_vlb(eta, loglike_params, recogn_params,
+               data_batch, num_batches, num_samples):
+        nn_potentials = recognize(recogn_params, data_batch)
+        samples, saved.stats, global_vlb, local_vlb = \
+            run_inference(eta_prior, eta, nn_potentials, num_samples)
+        return global_vlb + num_batches * local_vlb \
+            + num_batches * loglike(loglike_params, samples, data_batch)
 
-    def gradfun(y_n, N, L, eta, phi, psi):
-        objective = lambda (phi, psi): mc_vlb(eta, phi, psi, y_n, N, L)
-        vlb, (phi_grad, psi_grad) = vgrad(objective)((phi, psi))
-        eta_natgrad = sub(add(eta_prior, saved.stats), eta)
-        return vlb, (eta_natgrad, phi_grad, psi_grad)
+    def gradfun(eta, loglike_params, recogn_params,
+                data_batch, num_batches, num_samples):
+        objective = lambda (loglike_params, recogn_params): \
+            mc_vlb(eta, loglike_params, recogn_params,
+                   data_batch, num_batches, num_samples)
+        vlb, (loglike_grad, recogn_grad) = \
+            vgrad(objective)((loglike_params, recogn_params))
+        eta_natgrad = eta_prior + num_batches * saved.stats - eta
+        return vlb, (eta_natgrad, loglike_grad, recogn_grad)
 
     return gradfun

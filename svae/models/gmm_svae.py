@@ -50,7 +50,7 @@ def initialize_local_meanfield(label_global, node_potentials):
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
     partial_contract = lambda a, b: \
-        sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y, in zip(a, b))
+        sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y in zip(a, b))
 
     gaussian_local_natparams = map(niw.expectedstats, gaussian_globals)
     node_params = np.array([
@@ -131,7 +131,7 @@ def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random_scale=0.):
     return label_global_natparam, gaussian_global_natparams
 
 
-### inference function
+### inference functions
 
 def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     label_global_natparam, gaussian_global_natparams = global_natparam
@@ -144,4 +144,17 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_vlb = label_vlb + gaussian_vlb
     global_vlb = gmm_global_vlb(global_natparam, prior_natparam)
 
-    return samples, stats, global_vlb, local_vlb
+    return samples, unbox(stats), global_vlb, local_vlb
+
+def make_encoder_decoder(recognize, decode):
+    def encode_mean(data, natparam, recogn_params):
+        nn_potentials = recognize(recogn_params, data)
+        (_, gaussian_stats), _, _ = optimize_local_meanfield(natparam, nn_potentials)
+        _, Ex, _, _ = gaussian_stats
+        return Ex
+
+    def decode_mean(z, phi):
+        mu, log_sigmasq = decode(z, phi)
+        return mu.mean(axis=1)
+
+    return encode_mean, decode_mean

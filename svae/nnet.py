@@ -98,7 +98,7 @@ def _gresnet(mlp_type, mlp, params, inputs):
         return make_tuple(mu_mlp + mu_res, sigmasq_mlp + sigmasq_res)
     else:
         J_mlp, h_mlp = mlp(mlp_params, inputs)
-        J_res = log1pexp(b2)
+        J_res = -1./2 * log1pexp(b2)
         h_res = unravel(np.dot(ravel(inputs), W) + b1)
         return make_tuple(J_mlp + J_res, h_mlp + h_res)
 

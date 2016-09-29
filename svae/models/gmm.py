@@ -79,7 +79,8 @@ def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
 
     local_natparam = get_local_natparam(gaussian_globals, node_potentials, label_stats)
     stats = gaussian.expectedstats(local_natparam)
-    vlb = gaussian.logZ(local_natparam) - contract(node_potentials, get_node_stats(stats))
+    vlb = gaussian.logZ(local_natparam) \
+        - contract(node_potentials, get_node_stats(stats)[:len(node_potentials)])
 
     return local_natparam, stats, vlb
 

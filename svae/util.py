@@ -2,8 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.linalg as spla
-from autograd.util import flatten
-import itertools
+from itertools import islice, imap, cycle
 import operator
 from functools import partial
 from toolz import curry
@@ -29,7 +28,6 @@ def rle(stateseq):
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))
     return stateseq[pos[:-1]], np.diff(pos)
 
-flat = lambda x: flatten(x)[0]
 isarray = lambda x: hasattr(x, 'ndim')
 
 
@@ -85,14 +83,14 @@ def uninterleave(lst):
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis
     pending = len(iterables)
-    nexts = itertools.cycle(iter(it).next for it in iterables)
+    nexts = cycle(iter(it).next for it in iterables)
     while pending:
         try:
             for next in nexts:
                 yield next()
         except StopIteration:
             pending -= 1
-            nexts = itertools.cycle(itertools.islice(nexts, pending))
+            nexts = cycle(islice(nexts, pending))
 
 
 ### splitting data into batches
@@ -117,7 +115,7 @@ def split_into_batches(data, seq_len, num_seqs=None, permute=True):
     if num_seqs is None:
         return batches, len(batches)
     chunks = (batches[i*num_seqs:(i+1)*num_seqs] for i in xrange(len(batches) // num_seqs))
-    return itertools.imap(np.stack, chunks), len(batches) // num_seqs
+    return imap(np.stack, chunks), len(batches) // num_seqs
 
 
 ### basic math on (nested) tuples

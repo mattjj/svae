@@ -45,9 +45,9 @@ if __name__ == "__main__":
     pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=2., random_scale=5.)
     params = pgm_params, loglike_params, recogn_params
 
-    # instantiate svae gradient function and optimizer
+    # instantiate svae gradient function
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
-    ## optimize
+    # optimize
     params = adam(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e2),
                   params, num_iters=1000, step_size=1e-2)

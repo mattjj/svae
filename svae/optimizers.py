@@ -6,8 +6,6 @@ from util import add, scale, zeros_like, square, sqrt, div, add_scalar, mul, con
 
 
 # TODO just use autograd's optimizers?
-# TODO make optimizers into monads!
-# TODO track grad statistics
 
 default_callback = lambda epoch, vals, natgrad, allparams: print(np.mean(vals))
 

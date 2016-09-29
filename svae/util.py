@@ -8,17 +8,16 @@ from functools import partial
 
 # autograd internals
 from autograd.container_types import TupleNode, ListNode
-from autograd.core import getval
+from autograd.core import getval, primitive
 
 
 ### neural nets
 
-def sigmoid(x):
-    return 1. / (1. + np.exp(-x))
-
-
-def relu(x):
-    return np.maximum(x, 0.)
+identity = lambda x: x
+sigmoid = lambda x: 1. / (1. + np.exp(-x))
+relu = lambda x: np.maximum(x, 0.)
+log1pexp = primitive(lambda x: np.log(1. + np.exp(x)))
+log1pexp.defgrad(lambda ans, x: lambda g: g / (1 + np.exp(-x)))
 
 
 ### misc
@@ -29,7 +28,14 @@ def rle(stateseq):
     return stateseq[pos[:-1]], np.diff(pos)
 
 
-### monads
+### functions and monads
+
+def compose(funcs):
+    def composition(x):
+        for f in funcs:
+            x = f(x)
+        return x
+    return composition
 
 def monad_runner(bind):
     def run(result, steps):
@@ -44,23 +50,18 @@ def monad_runner(bind):
 def symmetrize(A):
     return (A + A.T)/2.
 
-
 def solve_triangular(L, x, trans='N'):
     return spla.solve_triangular(L, x, lower=True, trans=trans)
-
 
 def solve_posdef_from_cholesky(L, x):
     return solve_triangular(L, solve_triangular(L, x), 'T')
 
-
 def solve_symmetric(A, b):
     return np.linalg.solve(symmetrize(A), b)
-
 
 def rand_psd(n):
     A = npr.randn(n, n)
     return np.dot(A, A.T)
-
 
 def rot2D(theta):
     return np.array(
@@ -68,25 +69,13 @@ def rot2D(theta):
          [np.sin(theta), np.cos(theta)]])
 
 
-### functions
-
-def compose(funcs):
-    def composition(x):
-        for f in funcs:
-            x = f(x)
-        return x
-    return composition
-
-
 ### lists
 
 def interleave(a, b):
     return list(roundrobin(a, b))
 
-
 def uninterleave(lst):
     return lst[::2], lst[1::2]
-
 
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis

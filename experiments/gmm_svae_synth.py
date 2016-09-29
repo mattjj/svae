@@ -37,8 +37,8 @@ if __name__ == "__main__":
     prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=0.5)
 
     # construct recognition and decoder networks and initialize them
-    recognize, recogn_params = init_gresnet([(40, np.tanh), (40, np.tanh), (N, gaussian_info)])
-    decode,   loglike_params = init_gresnet([(40, np.tanh), (40, np.tanh), (P, gaussian_mean)])
+    recognize, recogn_params = init_gresnet(P, [(40, np.tanh), (40, np.tanh), (N, gaussian_info)])
+    decode,   loglike_params = init_gresnet(N, [(40, np.tanh), (40, np.tanh), (P, gaussian_mean)])
     loglike = make_loglike(decode)
     encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
 

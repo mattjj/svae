@@ -34,8 +34,10 @@ if __name__ == "__main__":
     pgm_prior_params = init_pgm_param(K, N, alpha=0.1/K, niw_conc=0.5)
 
     # construct recognition and decoder networks and initialize them
-    recognize, recogn_params = init_gresnet(P, [(40, np.tanh), (40, np.tanh), (2*N, gaussian_info)])
-    decode,   loglike_params = init_gresnet(N, [(40, np.tanh), (40, np.tanh), (2*P, gaussian_mean)])
+    recognize, recogn_params = \
+        init_gresnet(P, [(40, np.tanh), (40, np.tanh), (2*N, gaussian_info)])
+    decode,   loglike_params = \
+        init_gresnet(N, [(40, np.tanh), (40, np.tanh), (2*P, gaussian_mean)])
     loglike = make_loglike(decode)
     encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
 
@@ -47,5 +49,5 @@ if __name__ == "__main__":
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
     # optimize
-    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e2),
+    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3),
                  params, num_iters=1000, step_size=1e-2)

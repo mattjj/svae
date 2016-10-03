@@ -22,30 +22,6 @@ def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, r
 
     return 10*npr.permutation(np.einsum('ti,tij->tj', features, rotations))
 
-def make_plotter(encode_mean, decode_mean, data, pgm_params, plot_every=5):
-    fig, (observation_axis, latent_axis) = plt.subplots(1, 2, figsize=(8,4))
-
-    observation_axis.plot(data[:,0], data[:,1], color='k', marker='.', linestyle='')
-    observation_axis.set_aspect('equal')
-    observation_axis.autoscale(False)
-    observation_axis.axis('off')
-    latent_axis.set_aspect('equal')
-    latent_axis.axis('off')
-    fig.tight_layout()
-
-    plot_encoded_means(latent_axis, pgm_parms)
-    plot_components(latent_axis, pgm_params)
-
-    def plot(i, val, params, grad):
-        print('{}: {}'.format(i, val))
-
-        if (i % plot_every) == (-1 % plot_every):
-            plot_encoded_means(latent_axis.lines[0], params)
-            plot_components(latent_axis.lines[1:], params)
-            plt.pause(0.1)
-
-    return plot
-
 if __name__ == "__main__":
     npr.seed(1)
     plt.ion()

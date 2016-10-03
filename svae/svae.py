@@ -5,12 +5,12 @@ from autograd.util import flatten
 from util import split_into_batches, get_num_datapoints
 
 callback = lambda i, val, params, grad: print('{}: {}'.format(i, val))
+flat = lambda struct: flatten(struct)[0]
 
 @curry
 def make_gradfun(run_inference, recognize, loglike, pgm_prior, data,
                  batch_size, num_samples, natgrad_scale=1., callback=callback):
     _, unflat = flatten(pgm_prior)
-    flat = lambda struct: flatten(struct)[0]
     num_datapoints = get_num_datapoints(data)
     data_batches, num_batches = split_into_batches(data, batch_size)
     get_batch = lambda i: data_batches[i % num_batches]

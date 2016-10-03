@@ -1,22 +1,37 @@
-from __future__ import division
+from __future__ import division, print_function
+from toolz import curry
 from autograd import value_and_grad as vgrad
-from util import add, sub, contract, scale, unbox
+from autograd.util import flatten
+from util import split_into_batches, get_num_datapoints
 
+callback = lambda i, val, params, grad: print('{}: {}'.format(i, val))
+flat = lambda struct: flatten(struct)[0]
 
-def make_gradfun(run_inference, recognize, loglike, eta_prior):
+@curry
+def make_gradfun(run_inference, recognize, loglike, pgm_prior, data,
+                 batch_size, num_samples, natgrad_scale=1., callback=callback):
+    _, unflat = flatten(pgm_prior)
+    num_datapoints = get_num_datapoints(data)
+    data_batches, num_batches = split_into_batches(data, batch_size)
+    get_batch = lambda i: data_batches[i % num_batches]
     saved = lambda: None
 
-    def mc_vlb(eta, phi, psi, y_n, N, L):
-        nn_potentials = recognize(y_n, psi)
-        samples, stats, global_vlb, local_vlb = run_inference(
-            eta_prior, eta, nn_potentials, num_samples=L)
-        saved.stats = scale(N, unbox(stats))
-        return global_vlb + N * (local_vlb + loglike(y_n, samples, phi))
+    def mc_elbo(pgm_params, loglike_params, recogn_params, i):
+        nn_potentials = recognize(recogn_params, get_batch(i))
+        samples, saved.stats, global_kl, local_kl = \
+            run_inference(pgm_prior, pgm_params, nn_potentials, num_samples)
+        return (num_batches * loglike(loglike_params, samples, get_batch(i))
+                - global_kl - num_batches * local_kl) / num_datapoints
 
-    def gradfun(y_n, N, L, eta, phi, psi):
-        objective = lambda (phi, psi): mc_vlb(eta, phi, psi, y_n, N, L)
-        vlb, (phi_grad, psi_grad) = vgrad(objective)((phi, psi))
-        eta_natgrad = sub(add(eta_prior, saved.stats), eta)
-        return vlb, (eta_natgrad, phi_grad, psi_grad)
+    def gradfun(params, i):
+        pgm_params, loglike_params, recogn_params = params
+        objective = lambda (loglike_params, recogn_params): \
+            -mc_elbo(pgm_params, loglike_params, recogn_params, i)
+        val, (loglike_grad, recogn_grad) = vgrad(objective)((loglike_params, recogn_params))
+        pgm_natgrad = -natgrad_scale / num_datapoints * \
+            (flat(pgm_prior) + num_batches*flat(saved.stats) - flat(pgm_params))
+        grad = unflat(pgm_natgrad), loglike_grad, recogn_grad
+        if callback: callback(i, val, params, grad)
+        return grad
 
     return gradfun

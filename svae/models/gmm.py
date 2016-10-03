@@ -2,6 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 from autograd.scipy.misc import logsumexp
+from itertools import repeat
 
 from svae.util import contract, add, sub, unbox, shape
 from svae.lds import niw, gaussian
@@ -50,7 +51,7 @@ def initialize_local_meanfield(label_global, node_potentials):
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
     partial_contract = lambda a, b: \
-        sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y, in zip(a, b))
+        sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y in zip(a, b))
 
     gaussian_local_natparams = map(niw.expectedstats, gaussian_globals)
     node_params = np.array([
@@ -79,7 +80,8 @@ def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
 
     local_natparam = get_local_natparam(gaussian_globals, node_potentials, label_stats)
     stats = gaussian.expectedstats(local_natparam)
-    vlb = gaussian.logZ(local_natparam) - contract(node_potentials, get_node_stats(stats))
+    vlb = gaussian.logZ(local_natparam) \
+        - contract(node_potentials, get_node_stats(stats)[:len(node_potentials)])
 
     return local_natparam, stats, vlb
 
@@ -90,6 +92,7 @@ def gaussian_sample(local_natparams, num_samples):
     from svae.lds.gaussian import natural_sample
     Js, hs = local_natparams[:2]
     return np.array([natural_sample(J, h, num_samples) for J, h in zip(Js, hs)])
+
 
 ### GMM global operations
 
@@ -112,9 +115,10 @@ def get_global_stats(label_stats, gaussian_stats):
     global_gaussian_stats = tuple(map(contract(w), gaussian_stats) for w in label_stats.T)
     return global_label_stats, global_gaussian_stats
 
+
 ### prior initialization
 
-def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random_scale=0.):
+def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     def make_label_global_natparam(k, random):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
 
@@ -129,7 +133,7 @@ def make_gmm_global_natparam(K, N, alpha, niw_conc=10., random_scale=0.):
     return label_global_natparam, gaussian_global_natparams
 
 
-### inference function
+### inference functions
 
 def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     label_global_natparam, gaussian_global_natparams = global_natparam
@@ -139,7 +143,81 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
 
     stats = get_global_stats(label_stats, gaussian_stats)
     samples = gaussian_sample(gaussian_local_natparam, num_samples)
-    local_vlb = label_vlb + gaussian_vlb
-    global_vlb = gmm_global_vlb(global_natparam, prior_natparam)
+    local_kl = -label_vlb - gaussian_vlb
+    global_kl = -gmm_global_vlb(global_natparam, prior_natparam)
 
-    return samples, stats, global_vlb, local_vlb
+    return samples, unbox(stats), global_kl, local_kl
+
+def make_encoder_decoder(recognize, decode):
+    def encode_mean(data, natparam, recogn_params):
+        nn_potentials = recognize(recogn_params, data)
+        (_, gaussian_stats), _, _ = optimize_local_meanfield(natparam, nn_potentials)
+        _, Ex, _, _ = gaussian_stats
+        return Ex
+
+    def decode_mean(z, phi):
+        mu, _ = decode(z, phi)
+        return mu.mean(axis=1)
+
+    return encode_mean, decode_mean
+
+
+### plotting util for 2D
+
+def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
+    import matplotlib.pyplot as plt
+    if data.shape[1] != 2: raise ValueError, 'make_plotter_2d only works with 2D data'
+
+    fig, (observation_axis, latent_axis) = plt.subplots(1, 2, figsize=(8,4))
+    encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
+
+    observation_axis.plot(data[:,0], data[:,1], color='k', marker='.', linestyle='')
+    observation_axis.set_aspect('equal')
+    observation_axis.autoscale(False)
+    observation_axis.axis('off')
+    latent_axis.set_aspect('equal')
+    latent_axis.axis('off')
+    fig.tight_layout()
+
+    def plot_encoded_means(ax, params):
+        pgm_params, loglike_params, recogn_params = params
+        encoded_means = encode_mean(data, pgm_params, recogn_params)
+        if isinstance(ax, plt.Axes):
+            ax.plot(encoded_means[:,0], encoded_means[:,1], color='k', marker='.', linestyle='')
+        elif isinstance(ax, plt.Line2D):
+            ax.set_data(encoded_means.T)
+        else:
+            raise ValueError
+
+    def plot_ellipse(ax, alpha, mean, cov, line=None):
+        t = np.linspace(0, 2*np.pi, 100) % (2*np.pi)
+        circle = np.vstack((np.sin(t), np.cos(t)))
+        ellipse = 2.*np.dot(np.linalg.cholesky(cov), circle) + mean[:,None]
+        if line:
+            line.set_data(ellipse)
+            line.set_alpha(alpha)
+        else:
+            ax.plot(ellipse[0], ellipse[1], alpha=alpha, linestyle='-', linewidth=2)
+
+    def plot_components(ax, params):
+        pgm_params, loglike_params, recogn_params = params
+        dirichlet_natparams, all_niw_natparams = pgm_params
+        normalize = lambda arr: arr / np.sum(arr) * num_clusters
+        weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
+        components = map(niw.expected_standard_params, all_niw_natparams)
+        lines = repeat(None) if isinstance(ax, plt.Axes) else ax
+        for weight, (mu, Sigma), line in zip(weights, components, lines):
+            plot_ellipse(ax, weight, mu, Sigma, line)
+
+    def plot(i, val, params, grad):
+        print('{}: {}'.format(i, val))
+        if (i % plot_every) == (-1 % plot_every):
+            plot_encoded_means(latent_axis.lines[0], params)
+            plot_components(latent_axis.lines[1:], params)
+            plt.pause(0.1)
+
+    plot_encoded_means(latent_axis, params)
+    plot_components(latent_axis, params)
+    plt.pause(0.1)
+
+    return plot

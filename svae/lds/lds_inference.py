@@ -63,23 +63,20 @@ def _canonical_init_params(init_params):
    return init_params[0], init_params[1], sum(init_params[2:])
 
 def _canonical_node_params(node_params):
-    # My first convention was that node_params would be a list of the form
-    #     [(J_1, h_1, logZ_1), (J_2, h_2, logZ_2), ... ]
-    # but for cython computational performance I later changed to the convention
-    # that node_params is a three-element tuple of arrays, like
-    #     (J, h, logZ)
-    # where J.shape is (T, N, N) or (T, N), h.shape is (T, N), and logZ.shape is (T,).
-    # This function just asserts that the format is the latter.
+    def is_tuple_of_ndarrays(obj):
+        return isinstance(obj, (tuple, list)) and \
+            all(hasattr(element, 'ndim') for element in obj)
 
-    is_tuple_of_ndarrays = all(map(lambda x: hasattr(x, 'ndim'), node_params))
-    if len(node_params) == 3 and is_tuple_of_ndarrays:
+    if is_tuple_of_ndarrays(node_params):
         ndims = tuple(map(attrgetter('ndim'), node_params))
-        allowed_ndims = [(3,2,1), (2,2,1)]
-        if ndims in allowed_ndims:
+        if ndims in [(3,2,1), (3,2), (2,2,1), (2,2)]:
             T, N = node_params[1].shape
+            node_params = node_params if len(node_params) == 3 else \
+                node_params + (np.zeros(T),)
             allowed_shapes = [((T, N, N), (T, N), (T,)), ((T, N), (T, N), (T,))]
             if shape(node_params) in allowed_shapes:
                 return node_params
+
     raise ValueError
 
 

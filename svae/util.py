@@ -2,27 +2,43 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.linalg as spla
-import itertools
+from itertools import islice, imap, cycle
 import operator
 from functools import partial
+from toolz import curry
 
 # autograd internals
 from autograd.container_types import TupleNode, ListNode
-from autograd.core import getval
+from autograd.core import getval, primitive
+
+
+### neural nets
+
+identity = lambda x: x
+sigmoid = lambda x: 1. / (1. + np.exp(-x))
+relu = lambda x: np.maximum(x, 0.)
+log1pexp = primitive(lambda x: np.log(1. + np.exp(x)))
+log1pexp.defgrad(lambda ans, x: lambda g: g / (1 + np.exp(-x)))
 
 
 ### misc
-
-def sigmoid(x):
-    return 1. / (1. + np.exp(-x))
-
 
 def rle(stateseq):
     pos, = np.where(np.diff(stateseq) != 0)
     pos = np.concatenate(([0],pos+1,[len(stateseq)]))
     return stateseq[pos[:-1]], np.diff(pos)
 
-### monads
+isarray = lambda x: hasattr(x, 'ndim')
+
+
+### functions and monads
+
+def compose(funcs):
+    def composition(x):
+        for f in funcs:
+            x = f(x)
+        return x
+    return composition
 
 def monad_runner(bind):
     def run(result, steps):
@@ -37,23 +53,18 @@ def monad_runner(bind):
 def symmetrize(A):
     return (A + A.T)/2.
 
-
 def solve_triangular(L, x, trans='N'):
     return spla.solve_triangular(L, x, lower=True, trans=trans)
-
 
 def solve_posdef_from_cholesky(L, x):
     return solve_triangular(L, solve_triangular(L, x), 'T')
 
-
 def solve_symmetric(A, b):
     return np.linalg.solve(symmetrize(A), b)
-
 
 def rand_psd(n):
     A = npr.randn(n, n)
     return np.dot(A, A.T)
-
 
 def rot2D(theta):
     return np.array(
@@ -61,36 +72,28 @@ def rot2D(theta):
          [np.sin(theta), np.cos(theta)]])
 
 
-### functions
-
-def compose(funcs):
-    return reduce(lambda f, g: lambda x: g(f(x)), funcs, lambda x: x)
-
-
 ### lists
 
 def interleave(a, b):
     return list(roundrobin(a, b))
 
-
 def uninterleave(lst):
     return lst[::2], lst[1::2]
-
 
 def roundrobin(*iterables):
     # Recipe credited to George Sakkis
     pending = len(iterables)
-    nexts = itertools.cycle(iter(it).next for it in iterables)
+    nexts = cycle(iter(it).next for it in iterables)
     while pending:
         try:
             for next in nexts:
                 yield next()
         except StopIteration:
             pending -= 1
-            nexts = itertools.cycle(itertools.islice(nexts, pending))
+            nexts = cycle(islice(nexts, pending))
 
 
-### batches
+### splitting data into batches
 
 def get_num_datapoints(x):
     return x.shape[0] if isinstance(x, np.ndarray) else sum(map(get_num_datapoints, x))
@@ -102,16 +105,17 @@ def flatmap(f, container):
                      dict: lambda f, dct: flatten(map(f, dct.values()))}
     return mappers[type(container)](f, container)
 
+@curry
 def split_array(arr, length):
     truncate_to_multiple = lambda arr, k: arr[:k*(len(arr) // k)]
     return np.split(truncate_to_multiple(arr, length), len(arr) // length)
 
 def split_into_batches(data, seq_len, num_seqs=None, permute=True):
-    batches = npr.permutation(flatmap(partial(split_array, length=seq_len), data))
+    batches = npr.permutation(flatmap(split_array(length=seq_len), data))
     if num_seqs is None:
         return batches, len(batches)
     chunks = (batches[i*num_seqs:(i+1)*num_seqs] for i in xrange(len(batches) // num_seqs))
-    return itertools.imap(np.stack, chunks), len(batches) // num_seqs
+    return imap(np.stack, chunks), len(batches) // num_seqs
 
 
 ### basic math on (nested) tuples

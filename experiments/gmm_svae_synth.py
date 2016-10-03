@@ -1,103 +1,12 @@
 from __future__ import division, print_function
-import numpy as np
-import numpy.random as npr
 import matplotlib.pyplot as plt
-from functools import partial
-
+import autograd.numpy as np
+import autograd.numpy.random as npr
+from autograd.optimizers import adam, sgd
 from svae.svae import make_gradfun
-from svae.optimizers import adam
-
-from svae.recognition_models import mlp_recognize, init_mlp_recognize, \
-    resnet_recognize, init_resnet_recognize
-from svae.forward_models import mlp_decode, mlp_loglike, init_mlp_loglike, \
-    resnet_decode, resnet_loglike, init_resnet_loglike
-
-from svae.models.gmm_svae import run_inference, make_gmm_global_natparam, optimize_local_meanfield
-from svae.lds import niw
-from svae.hmm import dirichlet
-
-
-recognize = resnet_recognize
-loglike = resnet_loglike
-decode = resnet_decode
-init_recognize = init_resnet_recognize
-init_loglike = init_resnet_loglike
-
-normalize = lambda x: x / np.sum(x)
-
-def encode_mean(data, natparam, psi):
-    nn_potentials = recognize(data, psi)
-    (_, gaussian_stats), _, _ = optimize_local_meanfield(natparam, nn_potentials)
-    _, Ex, _, _ = gaussian_stats
-    return Ex
-
-def decode_mean(z, phi):
-    mu, log_sigmasq = decode(z, phi)
-    assert mu.ndim == 2 or mu.shape[1] == 1
-    return mu.mean(axis=1)
-
-def plot(itr, axs, data, params):
-    natparam, phi, psi = params
-    ax0, ax1 = axs
-
-    def generate_ellipse(mu, Sigma):
-        t = np.hstack([np.arange(0, 2*np.pi, 0.01),0])
-        circle = np.vstack([np.sin(t), np.cos(t)])
-        ellipse = 2. * np.dot(np.linalg.cholesky(Sigma), circle)
-        return ellipse[0] + mu[0], ellipse[1] + mu[1]
-
-    def plot_or_update(idx, ax, x, y, alpha=1, **kwargs):
-        if len(ax.lines) > idx:
-            ax.lines[idx].set_data((x, y))
-            ax.lines[idx].set_alpha(alpha)
-        else:
-            ax.plot(x, y, alpha=alpha, **kwargs)
-
-    dir_hypers, all_niw_hypers = natparam
-    weights = normalize(np.exp(dirichlet.expectedstats(dir_hypers)))
-    components = map(niw.expected_standard_params, all_niw_hypers)
-
-    latent_locations = encode_mean(data, natparam, psi)
-    reconstruction = decode_mean(latent_locations, phi)
-
-    ## make data-space plot
-
-    # plot_or_update(0, ax0, reconstruction[:,0], reconstruction[:,1],
-    #                color='b', marker='x', linestyle='')
-
-    for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
-        x, y = generate_ellipse(mu, Sigma)
-        transformed_x, transformed_y = decode_mean(np.vstack((x, y)).T, phi).T
-        plot_or_update(idx, ax0, transformed_x, transformed_y,
-                       alpha=min(1., num_clusters*weight), linestyle='-', linewidth=2)
-
-    ## make latent space plot
-
-    plot_or_update(0, ax1, latent_locations[:,0], latent_locations[:,1],
-                   color='k', marker='o', linestyle='')
-
-    for idx, (weight, (mu, Sigma)) in enumerate(zip(weights, components)):
-        x, y = generate_ellipse(mu, Sigma)
-        plot_or_update(idx+1, ax1, x, y, alpha=min(1., num_clusters*weight),
-                       linestyle='-', linewidth=2)
-
-    ax1.relim()
-    ax1.autoscale_view(True, True, True)
-
-    ## save plot
-
-    plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150)
-    # plt.savefig('figures/gmm_{:04d}.png'.format(itr), dpi=150, transparent=True)
-    # plt.pause(0.0001)
-
-
-def make_gmm_data():
-    data = npr.permutation(np.concatenate(
-        [-2. + npr.randn(50, P),
-         2. + npr.randn(50, P),
-         np.array([-3, 3.]) + npr.randn(50, P)]))
-    data[:,1] *= 3.  # make eccentric
-    return data
+from svae.nnet import init_gresnet, make_loglike, gaussian_mean, gaussian_info
+from svae.models.gmm import (run_inference, init_pgm_param, make_encoder_decoder,
+                             make_plotter_2d)
 
 def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, rate):
     rads = np.linspace(0, 2*np.pi, num_classes, endpoint=False)
@@ -113,54 +22,64 @@ def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, r
 
     return 10*npr.permutation(np.einsum('ti,tij->tj', features, rotations))
 
+def make_plotter(encode_mean, decode_mean, data, pgm_params, plot_every=5):
+    fig, (observation_axis, latent_axis) = plt.subplots(1, 2, figsize=(8,4))
+
+    observation_axis.plot(data[:,0], data[:,1], color='k', marker='.', linestyle='')
+    observation_axis.set_aspect('equal')
+    observation_axis.autoscale(False)
+    observation_axis.axis('off')
+    latent_axis.set_aspect('equal')
+    latent_axis.axis('off')
+    fig.tight_layout()
+
+    plot_encoded_means(latent_axis, pgm_parms)
+    plot_components(latent_axis, pgm_params)
+
+    def plot(i, val, params, grad):
+        print('{}: {}'.format(i, val))
+
+        if (i % plot_every) == (-1 % plot_every):
+            plot_encoded_means(latent_axis.lines[0], params)
+            plot_components(latent_axis.lines[1:], params)
+            plt.pause(0.1)
+
+    return plot
 
 if __name__ == "__main__":
     npr.seed(1)
-    from cycler import cycler
-    plt.rc('axes', prop_cycle=(cycler('color', ['blue', 'orange', 'red', 'cyan', 'magenta', 'yellow'])))
-    # plt.ion()
+    plt.ion()
 
-    K = 15  # number of components in mixture model
-    N = 2   # number of latent dimensions
-    P = 2   # number of observation dimensions
+    num_clusters = 5           # number of clusters in pinwheel data
+    samples_per_cluster = 100  # number of samples per cluster in pinwheel
+    K = 15                     # number of components in mixture model
+    N = 2                      # number of latent dimensions
+    P = 2                      # number of observation dimensions
 
-    ## generate synthetic data
-    # data = make_gmm_data()
-    num_clusters = 3
-    data = make_pinwheel_data(0.5, 0.025, num_clusters, 100, 0.3)
+    # generate synthetic data
+    data = make_pinwheel_data(0.3, 0.05, num_clusters, samples_per_cluster, 0.25)
 
-    # set prior natparam
-    prior_natparam = make_gmm_global_natparam(K, N, alpha=0.1/K, niw_conc=2.)
+    # set prior natparam to something sparsifying but otherwise generic
+    pgm_prior_params = init_pgm_param(K, N, alpha=0.1/K, niw_conc=0.5)
 
-    # build svae gradient function
-    gradfun = make_gradfun(run_inference, recognize, loglike, prior_natparam)
+    # construct recognition and decoder networks and initialize them
+    recognize, recogn_params = \
+        init_gresnet(P, [(40, np.tanh), (40, np.tanh), (2*N, gaussian_info)])
+    decode,   loglike_params = \
+        init_gresnet(N, [(40, np.tanh), (40, np.tanh), (2*P, gaussian_mean)])
+    loglike = make_loglike(decode)
 
-    # set up plotting and callback
-    fig, axs = plt.subplots(1, 2, figsize=(8, 4))
-    axs[0].scatter(data[:,0], data[:,1], s=50, color='k', marker='+')
-    axs[0].set_aspect('equal')
-    axs[1].set_aspect('equal')
-    axs[0].autoscale(False)
-    axs[0].axis('off')
-    axs[1].axis('off')
-    fig.tight_layout()
+    # initialize gmm parameters
+    pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=1., random_scale=5.)
+    params = pgm_params, loglike_params, recogn_params
 
-    itr = 0
-    def callback(_, vals, natgrad, params):
-        global itr
-        itr += 1
-        print('{}: {}'.format(itr, np.mean(vals)))
-        plot(itr, axs, data, params)
+    # set up encoder/decoder and plotting
+    encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
+    plot = make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every=5)
 
-    ## instantiate optimizer
-    optimize = adam(data, gradfun, callback)
+    # instantiate svae gradient function
+    gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
-    ## set initialization to something generic
-    init_eta = make_gmm_global_natparam(K, N, alpha=1., niw_conc=2., random_scale=5.)
-    init_phi = init_loglike([20, 20], N, P)
-    init_psi = init_recognize([20, 20], N, P)
-    params = init_eta, init_phi, init_psi
-
-    ## optimize
-    plot(0, axs, data, params)  # initial condition
-    params = optimize(params, 10., 1e-2, num_epochs=1000, seq_len=len(data)//2, num_samples=10)
+    # optimize
+    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
+                 params, num_iters=1000, step_size=1e-2)

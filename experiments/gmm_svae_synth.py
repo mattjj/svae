@@ -6,7 +6,7 @@ from autograd.optimizers import adam, sgd
 from svae.svae import make_gradfun
 from svae.nnet import init_gresnet, make_loglike, gaussian_mean, gaussian_info
 from svae.models.gmm import (run_inference, init_pgm_param, make_encoder_decoder,
-                             dirichlet, niw)
+                             make_plotter_2d)
 
 def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, rate):
     rads = np.linspace(0, 2*np.pi, num_classes, endpoint=False)
@@ -22,7 +22,7 @@ def make_pinwheel_data(radial_std, tangential_std, num_classes, num_per_class, r
 
     return 10*npr.permutation(np.einsum('ti,tij->tj', features, rotations))
 
-def make_plotter(encode_mean, decode_mean, data, num_clusters, plot_every=5):
+def make_plotter(encode_mean, decode_mean, data, pgm_params, plot_every=5):
     fig, (observation_axis, latent_axis) = plt.subplots(1, 2, figsize=(8,4))
 
     observation_axis.plot(data[:,0], data[:,1], color='k', marker='.', linestyle='')
@@ -33,30 +33,15 @@ def make_plotter(encode_mean, decode_mean, data, num_clusters, plot_every=5):
     latent_axis.axis('off')
     fig.tight_layout()
 
-    normalize = lambda arr: arr / np.sum(arr)
-
-    def plot_ellipse(ax, weight, mean, cov):
-        t = np.linspace(0, 2*np.pi, 100) % (2*np.pi)
-        circle = np.vstack((np.sin(t), np.cos(t)))
-        ellipse = 2.*np.dot(np.linalg.cholesky(cov), circle) + mean[:,None]
-        ax.plot(ellipse[0], ellipse[1], alpha=min(1., num_clusters*weight),
-                linestyle='-', linewidth=2)
+    plot_encoded_means(latent_axis, pgm_parms)
+    plot_components(latent_axis, pgm_params)
 
     def plot(i, val, params, grad):
         print('{}: {}'.format(i, val))
-        if not i % plot_every:
-            latent_axis.lines = []
 
-            pgm_params, loglike_params, recogn_params = params
-            x, y = encode_mean(data, pgm_params, recogn_params).T
-            latent_axis.plot(x, y, color='k', marker='.', linestyle='')
-
-            dirichlet_natparams, all_niw_natparams = pgm_params
-            weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
-            components = map(niw.expected_standard_params, all_niw_natparams)
-            for weight, (mu, Sigma) in zip(weights, components):
-                plot_ellipse(latent_axis, weight, mu, Sigma)
-
+        if (i % plot_every) == (-1 % plot_every):
+            plot_encoded_means(latent_axis.lines[0], params)
+            plot_components(latent_axis.lines[1:], params)
             plt.pause(0.1)
 
     return plot
@@ -84,13 +69,13 @@ if __name__ == "__main__":
         init_gresnet(N, [(40, np.tanh), (40, np.tanh), (2*P, gaussian_mean)])
     loglike = make_loglike(decode)
 
-    # set up plotting
-    encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
-    plot = make_plotter(encode_mean, decode_mean, data, num_clusters, plot_every=5)
-
     # initialize gmm parameters
     pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=1., random_scale=5.)
     params = pgm_params, loglike_params, recogn_params
+
+    # set up encoder/decoder and plotting
+    encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
+    plot = make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every=5)
 
     # instantiate svae gradient function
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)

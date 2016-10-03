@@ -157,7 +157,7 @@ def make_encoder_decoder(recognize, decode):
 
     def decode_mean(x, loglike_params):
         mu, _ = decode(loglike_params, x)
-        return mu.mean(axis=1)
+        return mu.mean
 
     return encode_mean, decode_mean
 

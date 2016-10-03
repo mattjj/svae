@@ -52,6 +52,7 @@ def make_plotter(recognize, decode, data, params, prefix, plot_every):
         return x
 
     def plot(i, val, params, grad):
+        print('{}: {}'.format(i, val))
         y = generate_samples(params, data, prefix)
         T, num_samples, ndim = y.shape
 

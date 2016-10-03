@@ -15,7 +15,6 @@ from cython_gaussian_grads cimport *
 ### filtering
 
 def ensure_time_axis(pair_params):
-    # TODO could also ensure dense here (list of ndarrays and floats, not list of tuples)
     J11, J12, J22, logZ = pair_params
     homog = J11.ndim == 2
 
@@ -24,6 +23,13 @@ def ensure_time_axis(pair_params):
 
     T = lambda x: np.transpose(x, (1, 2, 0))
     return (T(J11), T(J12), T(J22), logZ), 1
+
+def canonical_node_params(node_params):
+    if len(node_params) == 2:
+        J_node, h_node = node_params
+        logZ_node = np.zeros(J_node.shape[1], order='F')
+        return J_node, h_node, logZ_node
+    return node_params
 
 def natural_filter_forward_general(init_params, pair_params, node_params):
     # inputs
@@ -39,7 +45,7 @@ def natural_filter_forward_general(init_params, pair_params, node_params):
     cdef double[::1] logZ_pair = np.require(_logZ_pair, np.double, 'F')
     cdef int step = _step
 
-    _J_node, _h_node, _logZ_node = node_params
+    _J_node, _h_node, _logZ_node = canonical_node_params(node_params)
     cdef double[::1,:] J_node = -2*np.require(np.asarray(_J_node).T, np.double, 'F')
     cdef double[::1,:] h_node = np.require(np.asarray(_h_node).T, np.double, 'F')
     cdef double[::1] logZ_node = np.require(_logZ_node, np.double)

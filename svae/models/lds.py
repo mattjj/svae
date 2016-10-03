@@ -2,7 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 
-from svae.util import sub, contract
+from svae.util import sub, contract, unbox
 
 from svae.lds.lds_inference import natural_lds_inference_general, \
     cython_natural_lds_inference_general
@@ -45,16 +45,30 @@ def python_run_inference(prior_natparam, global_natparam, nn_potentials, num_sam
 def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = cython_natural_lds_inference_general(
-        local_natparam, nn_potentials, num_samples)
+        local_natparam, unbox(nn_potentials), num_samples)
     global_expected_stats, local_expected_stats = expected_stats[:-1], expected_stats[-1]
-    local_kl = contract(nn_potentials, local_expected_stats) - local_normalizer
+    local_kl = contract(nn_potentials, local_expected_stats[:2]) - local_normalizer
     global_kl = lds_prior_kl(global_natparam, prior_natparam, local_natparam)
     return samples, global_expected_stats, global_kl, local_kl
 
 
+def make_encoder_decoder(recognize, decode):
+    def encode_mean(data, pgm_params, recogn_params):
+        nn_potentials = recognize(recogn_params, data)
+        _, expected_stats, _ = cython_natural_lds_inference_general(
+            local_natparam, nn_potentials, 1)  # TODO does it work to pass 0 samples?
+        return expected_stats[-1][-1]
+
+    def decode_mean(x, loglike_params):
+        mu, _ = decode(loglike_params, x)
+        return mu
+
+    return encode_mean, decode_mean
+
+
 ### convenient for testing
 
-def make_prior_natparam(n, random=False, scaling=1.):
+def init_pgm_param(n, random=False, scaling=1.):
     if random: raise NotImplementedError
 
     nu, S, mu, kappa = n+1., 2.*scaling*(n+1)*np.eye(n), np.zeros(n), 1./(2.*scaling*n)

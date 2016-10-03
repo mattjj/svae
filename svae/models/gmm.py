@@ -149,14 +149,14 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     return samples, unbox(stats), global_kl, local_kl
 
 def make_encoder_decoder(recognize, decode):
-    def encode_mean(data, natparam, recogn_params):
+    def encode_mean(data, pgm_params, recogn_params):
         nn_potentials = recognize(recogn_params, data)
-        (_, gaussian_stats), _, _ = optimize_local_meanfield(natparam, nn_potentials)
+        (_, gaussian_stats), _, _ = optimize_local_meanfield(pgm_params, nn_potentials)
         _, Ex, _, _ = gaussian_stats
         return Ex
 
-    def decode_mean(z, phi):
-        mu, _ = decode(z, phi)
+    def decode_mean(x, loglike_params):
+        mu, _ = decode(loglike_params, x)
         return mu.mean(axis=1)
 
     return encode_mean, decode_mean

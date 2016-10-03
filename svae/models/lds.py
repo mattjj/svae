@@ -32,7 +32,7 @@ def lds_prior_logZ(natparam):
 
 ### build inference function
 
-def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+def python_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = natural_lds_inference_general(
         local_natparam, nn_potentials, num_samples)
@@ -42,7 +42,7 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     return samples, global_expected_stats, global_kl, local_kl
 
 
-def cython_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = cython_natural_lds_inference_general(
         local_natparam, nn_potentials, num_samples)

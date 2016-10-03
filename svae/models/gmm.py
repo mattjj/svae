@@ -202,7 +202,7 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
     def plot_components(ax, params):
         pgm_params, loglike_params, recogn_params = params
         dirichlet_natparams, all_niw_natparams = pgm_params
-        normalize = lambda arr: arr / np.sum(arr) * num_clusters
+        normalize = lambda arr: np.minimum(1., arr / np.sum(arr) * num_clusters)
         weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
         components = map(niw.expected_standard_params, all_niw_natparams)
         lines = repeat(None) if isinstance(ax, plt.Axes) else ax

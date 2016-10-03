@@ -13,11 +13,11 @@ from svae.lds import niw, mniw
 
 ### the LDS prior is a product: NIW on initial state distn, MNIW on transition distn
 
-def lds_prior_vlb(global_natparam, prior_natparam, expected_stats=None):
+def lds_prior_kl(global_natparam, prior_natparam, expected_stats=None):
     if expected_stats is None:
         expected_stats = lds_prior_expectedstats(global_natparam)
-    return contract(sub(prior_natparam, global_natparam), expected_stats) \
-        - (lds_prior_logZ(prior_natparam) - lds_prior_logZ(global_natparam))
+    return -contract(sub(prior_natparam, global_natparam), expected_stats) \
+        + (lds_prior_logZ(prior_natparam) - lds_prior_logZ(global_natparam))
 
 
 def lds_prior_expectedstats(natparam):
@@ -37,9 +37,9 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     samples, expected_stats, local_normalizer = natural_lds_inference_general(
         local_natparam, nn_potentials, num_samples)
     global_expected_stats, local_expected_stats = expected_stats[:-1], expected_stats[-1]
-    local_vlb = local_normalizer - contract(nn_potentials, local_expected_stats)
-    global_vlb = lds_prior_vlb(global_natparam, prior_natparam, local_natparam)
-    return samples, global_expected_stats, global_vlb, local_vlb
+    local_kl = contract(nn_potentials, local_expected_stats) - local_normalizer
+    global_kl = lds_prior_kl(global_natparam, prior_natparam, local_natparam)
+    return samples, global_expected_stats, global_kl, local_kl
 
 
 def cython_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
@@ -47,9 +47,9 @@ def cython_run_inference(prior_natparam, global_natparam, nn_potentials, num_sam
     samples, expected_stats, local_normalizer = cython_natural_lds_inference_general(
         local_natparam, nn_potentials, num_samples)
     global_expected_stats, local_expected_stats = expected_stats[:-1], expected_stats[-1]
-    local_vlb = local_normalizer - contract(nn_potentials, local_expected_stats)
-    global_vlb = lds_prior_vlb(global_natparam, prior_natparam, local_natparam)
-    return samples, global_expected_stats, global_vlb, local_vlb
+    local_kl = contract(nn_potentials, local_expected_stats) - local_normalizer
+    global_kl = lds_prior_kl(global_natparam, prior_natparam, local_natparam)
+    return samples, global_expected_stats, global_kl, local_kl
 
 
 ### convenient for testing

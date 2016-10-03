@@ -17,7 +17,7 @@ from autograd.core import getval, primitive
 identity = lambda x: x
 sigmoid = lambda x: 1. / (1. + np.exp(-x))
 relu = lambda x: np.maximum(x, 0.)
-log1pexp = primitive(lambda x: np.log(1. + np.exp(x)))
+log1pexp = primitive(lambda x: np.log1p(np.exp(x)))
 log1pexp.defgrad(lambda ans, x: lambda g: g / (1 + np.exp(-x)))
 
 

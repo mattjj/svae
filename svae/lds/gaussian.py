@@ -2,11 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 from numpy.random.mtrand import _rand as rng
 
-from svae.util import solve_triangular, solve_posdef_from_cholesky, symmetrize
-
-# TODO remove these
-from inspect import getcallargs, getargspec
-from svae.util import contract
+from svae.util import solve_triangular, solve_posdef_from_cholesky
 
 ### distribution form
 
@@ -145,24 +141,3 @@ def pair_mean_to_natural(A, sigma):
     logZ = -1./2 * np.linalg.slogdet(sigma)[1]
 
     return Jxx, Jxy, Jyy, logZ
-
-
-### vanilla gaussian stuff, maybe should be in a different file
-
-def expectedstats(natparam):
-    J, h = natparam[:2]
-    J = -2*J
-
-    Ex = np.linalg.solve(J, h)
-    ExxT = np.linalg.inv(J) + Ex[...,None] * Ex[...,None,:]
-    En = np.ones(J.shape[0]) if J.ndim == 3 else 1.
-
-    return ExxT, Ex, En, En
-
-def logZ(natparam):
-    J, h = natparam[:2]
-    J = -2*J
-    L = np.linalg.cholesky(J)
-    return 1./2 * np.sum(h * np.linalg.solve(J, h)) \
-        - np.sum(np.log(np.diagonal(L, axis1=-1, axis2=-2))) \
-        - sum(map(np.sum, natparam[2:]))

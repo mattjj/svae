@@ -2,6 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.linalg as spla
+from autograd.util import flatten
 from itertools import islice, imap, cycle
 import operator
 from functools import partial
@@ -17,8 +18,10 @@ from autograd.core import getval, primitive
 identity = lambda x: x
 sigmoid = lambda x: 1. / (1. + np.exp(-x))
 relu = lambda x: np.maximum(x, 0.)
-log1pexp = primitive(lambda x: np.log(1. + np.exp(x)))
+log1pexp = primitive(lambda x: np.log1p(np.exp(x)))
 log1pexp.defgrad(lambda ans, x: lambda g: g / (1 + np.exp(-x)))
+normalize = lambda x: x / np.sum(x, axis=-1, keepdims=True)
+softmax = lambda x: normalize(np.exp(x - np.max(x, axis=-1, keepdims=True)))
 
 
 ### misc
@@ -29,7 +32,10 @@ def rle(stateseq):
     return stateseq[pos[:-1]], np.diff(pos)
 
 isarray = lambda x: hasattr(x, 'ndim')
-
+flat = lambda x: flatten(x)[0]
+partial_flat = lambda a, axes: np.reshape(a, a.shape[:-axes] + (-1,))
+tensordot = lambda a, b, axes=2: np.dot(partial_flat(a, axes), partial_flat(b, axes).T)
+outer = lambda x, y: x[...,:,None] * y[...,None,:]
 
 ### functions and monads
 
@@ -50,8 +56,8 @@ def monad_runner(bind):
 
 ### matrices
 
-def symmetrize(A):
-    return (A + A.T)/2.
+T = lambda X: np.swapaxes(X, axis1=-1, axis2=-2)
+symmetrize = lambda X: (X + T(X))/2.
 
 def solve_triangular(L, x, trans='N'):
     return spla.solve_triangular(L, x, lower=True, trans=trans)
@@ -70,6 +76,7 @@ def rot2D(theta):
     return np.array(
         [[np.cos(theta), -np.sin(theta)],
          [np.sin(theta), np.cos(theta)]])
+
 
 
 ### lists

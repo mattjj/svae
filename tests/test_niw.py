@@ -3,24 +3,26 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 from autograd import grad
 
-from svae.distributions.gaussian import logZ, expectedstats, \
-    pack_dense, unpack_dense
+from svae.distributions.niw import logZ, expectedstats, \
+    standard_to_natural, natural_to_standard
 from test_util import rand_psd
 
 
-def rand_gaussian(n):
-    J = rand_psd(n) + n * np.eye(n)
-    h = npr.randn(n)
-    return pack_dense(-1./2*J, h)
+def rand_niw(n):
+    S = rand_psd(n) + n * np.eye(n)
+    m = npr.randn(n)
+    kappa = n + npr.uniform(1, 3)
+    nu = n + npr.uniform(1, 3)
+    return standard_to_natural(S, m, kappa, nu)
 
 def rand_natparam(n, k):
-    return np.squeeze(np.stack([rand_gaussian(n) for _ in range(k)]))
+    return np.squeeze(np.stack([rand_niw(n) for _ in range(k)]))
 
-def test_pack_dense():
+def test_param_conversion():
     npr.seed(0)
 
     def check_params(natparam):
-        natparam2 = pack_dense(*unpack_dense(natparam))
+        natparam2 = standard_to_natural(*natural_to_standard(natparam))
         assert np.allclose(natparam, natparam2)
 
     for _ in xrange(5):

@@ -16,8 +16,8 @@ from svae.lds import niw, mniw
 def lds_prior_kl(global_natparam, prior_natparam, expected_stats=None):
     if expected_stats is None:
         expected_stats = lds_prior_expectedstats(global_natparam)
-    return -contract(sub(prior_natparam, global_natparam), expected_stats) \
-        + (lds_prior_logZ(prior_natparam) - lds_prior_logZ(global_natparam))
+    return contract(sub(prior_natparam, global_natparam), expected_stats) \
+        - (lds_prior_logZ(prior_natparam) - lds_prior_logZ(global_natparam))
 
 
 def lds_prior_expectedstats(natparam):
@@ -32,17 +32,18 @@ def lds_prior_logZ(natparam):
 
 ### build inference function
 
-def python_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = natural_lds_inference_general(
         local_natparam, nn_potentials, num_samples)
     global_expected_stats, local_expected_stats = expected_stats[:-1], expected_stats[-1]
-    local_kl = contract(nn_potentials, local_expected_stats) - local_normalizer
+    local_kl = contract(nn_potentials, local_expected_stats[:2]) - local_normalizer
     global_kl = lds_prior_kl(global_natparam, prior_natparam, local_natparam)
     return samples, global_expected_stats, global_kl, local_kl
 
 
-def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+# TODO i think this function is broken in how it computes the KL's
+def cython_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = cython_natural_lds_inference_general(
         local_natparam, unbox(nn_potentials), num_samples)
@@ -56,7 +57,7 @@ def make_encoder_decoder(recognize, decode):
     def encode_mean(data, pgm_params, recogn_params):
         nn_potentials = recognize(recogn_params, data)
         _, expected_stats, _ = cython_natural_lds_inference_general(
-            local_natparam, nn_potentials, 1)  # TODO does it work to pass 0 samples?
+            local_natparam, nn_potentials, 0)
         return expected_stats[-1][-1]
 
     def decode_mean(x, loglike_params):

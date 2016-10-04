@@ -27,7 +27,7 @@ def ensure_time_axis(pair_params):
 def canonical_node_params(node_params):
     if len(node_params) == 2:
         J_node, h_node = node_params
-        logZ_node = np.zeros(J_node.shape[1], order='F')
+        logZ_node = np.zeros(h_node.shape[0], order='F')
         return J_node, h_node, logZ_node
     return node_params
 

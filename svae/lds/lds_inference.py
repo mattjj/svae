@@ -72,7 +72,7 @@ def _canonical_node_params(node_params):
         if ndims in [(3,2,1), (3,2), (2,2,1), (2,2)]:
             T, N = node_params[1].shape
             node_params = node_params if len(node_params) == 3 else \
-                node_params + (np.zeros(T),)
+                node_params + [np.zeros(T)]
             allowed_shapes = [((T, N, N), (T, N), (T,)), ((T, N), (T, N), (T,))]
             if shape(node_params) in allowed_shapes:
                 return node_params
@@ -250,14 +250,14 @@ def natural_lds_estep_general_autograd(natparam, node_params):
 
 ## sampling
 
-def natural_lds_sample(natparam, node_params, num_samples=None):
+def python_natural_lds_sample(natparam, node_params, num_samples=None):
     init_params, pair_params = natparam
     forward_messages, _ = natural_filter_forward_general(
         init_params, pair_params, node_params)
     samples = natural_sample_backward_general(forward_messages, pair_params, num_samples)
     return samples
 
-def cython_natural_lds_sample(natparam, node_params, num_samples=1):
+def natural_lds_sample(natparam, node_params, num_samples=1):
     init_params, pair_params = natparam
     forward_messages, _ = cython_natural_filter_forward(init_params, pair_params, node_params)
     samples = cython_natural_sample_backward(forward_messages, pair_params, num_samples)

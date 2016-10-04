@@ -13,8 +13,6 @@ normalize = lambda x: x / np.sum(x, 1, keepdims=True)
 
 ### GMM mean field inference functions
 
-# TODO break out optimize local mean field loop?
-
 def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_iter=100):
     label_global, gaussian_global = global_natparam
 

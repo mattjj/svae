@@ -82,7 +82,7 @@ if __name__ == '__main__':
     N = 10
 
     # generate data
-    data = make_dot_data(20, 500, 5000, v=0.5, render_sigma=0.15, noise_sigma=0.1)
+    data = make_dot_data(20, 500, 5000, v=0.75, render_sigma=0.15, noise_sigma=0.1)
     T, P = data.shape
 
     # set up prior
@@ -105,5 +105,5 @@ if __name__ == '__main__':
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
     # optimize
-    params = adam(gradfun(batch_size=50, num_samples=1, natgrad_scale=0., callback=plot),
-                  params, num_iters=10000, step_size=1e-3)
+    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
+                 params, num_iters=10000, step_size=1e-3)

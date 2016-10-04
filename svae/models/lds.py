@@ -32,7 +32,7 @@ def lds_prior_logZ(natparam):
 
 ### build inference function
 
-def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+def python_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = natural_lds_inference_general(
         local_natparam, nn_potentials, num_samples)
@@ -42,11 +42,10 @@ def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     return samples, global_expected_stats, global_kl, local_kl
 
 
-# TODO i think this function is broken in how it computes the KL's
-def cython_run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
     local_natparam = lds_prior_expectedstats(global_natparam)
     samples, expected_stats, local_normalizer = cython_natural_lds_inference_general(
-        local_natparam, unbox(nn_potentials), num_samples)
+        local_natparam, nn_potentials, num_samples)
     global_expected_stats, local_expected_stats = expected_stats[:-1], expected_stats[-1]
     local_kl = contract(nn_potentials, local_expected_stats[:2]) - local_normalizer
     global_kl = lds_prior_kl(global_natparam, prior_natparam, local_natparam)

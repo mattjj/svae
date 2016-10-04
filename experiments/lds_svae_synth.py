@@ -99,11 +99,11 @@ if __name__ == '__main__':
 
     # set up encoder/decoder and plotting
     encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
-    plot = make_plotter(recognize, decode, data, params, prefix=25, plot_every=25)
+    plot = make_plotter(recognize, decode, data, params, prefix=25, plot_every=100)
 
     # instantiate svae gradient function
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
     # optimize
-    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
-                 params, num_iters=10000, step_size=1e-3)
+    params = adam(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
+                  params, num_iters=10000, step_size=1e-3)

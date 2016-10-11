@@ -9,7 +9,7 @@ from svae.nnet import init_mlp, make_loglike, gaussian_mean, gaussian_info
 from svae.models.lds import run_inference, init_pgm_param, make_encoder_decoder
 
 # these imports are for plotting
-from svae.models.lds import lds_prior_expectedstats
+from svae.models.lds import lds_prior_expectedstats, mniw
 from svae.lds.lds_inference import natural_lds_sample
 from svae.util import zeros_like, make_unop
 
@@ -30,6 +30,13 @@ def make_dot_data(image_width, T, num_steps, x0=0.0, v=0.5, render_sigma=0.2, no
 
 zero_after_prefix = lambda prefix: make_unop(lambda x: np.concatenate(
     (x[:prefix], np.zeros_like(x[prefix:]))), tuple)
+
+def print_eigvals(params):
+    pgm_params, _, _ = params
+    A, Sigma = mniw.expected_standard_params(pgm_params[1])
+    printer = lambda X: print(np.array(sorted(np.abs(np.linalg.eigvals(X)), reverse=True)))
+    printer(A)
+    printer(Sigma)
 
 def make_plotter(recognize, decode, data, params, prefix, plot_every):
     encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
@@ -62,6 +69,7 @@ def make_plotter(recognize, decode, data, params, prefix, plot_every):
             sample_images = np.hstack([y[:,i,:] for i in npr.choice(num_samples, 5, replace=False)])
             big_image = np.hstack((data, mean_image, sample_images))
 
+            ax.cla()
             ax.matshow(big_image, cmap='gray')
             ax.autoscale(False)
             ax.axis('off')
@@ -89,8 +97,10 @@ if __name__ == '__main__':
     pgm_prior_params = init_pgm_param(N)
 
     # construct recognition and decoder networks and initialize them
-    recognize, recogn_params = init_mlp(P, [(50, np.tanh), (2*N, gaussian_info)])
-    decode,   loglike_params = init_mlp(N, [(50, np.tanh), (2*P, gaussian_mean(sigmoid_mean=True))])
+    recognize, recogn_params = \
+        init_mlp(P, [(50, np.tanh), (50, np.tanh), (2*N, gaussian_info(tanh_scale=3.))])
+    decode,   loglike_params = \
+        init_mlp(N, [(50, np.tanh), (50, np.tanh), (2*P, gaussian_mean(sigmoid_mean=True))])
     loglike = make_loglike(decode)
 
     # initialize LDS parameters
@@ -99,11 +109,11 @@ if __name__ == '__main__':
 
     # set up encoder/decoder and plotting
     encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
-    plot = make_plotter(recognize, decode, data, params, prefix=25, plot_every=100)
+    plot = make_plotter(recognize, decode, data, params, prefix=25, plot_every=250)
 
     # instantiate svae gradient function
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
     # optimize
     params = adam(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
-                  params, num_iters=10000, step_size=1e-3)
+                  params, num_iters=100000, step_size=1e-3)

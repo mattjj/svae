@@ -40,9 +40,10 @@ def gaussian_mean(inputs, sigmoid_mean=False):
     return make_tuple(mu, sigmasq)
 
 @curry
-def gaussian_info(inputs):
+def gaussian_info(inputs, tanh_scale=None):
     J_input, h = np.split(inputs, 2, axis=-1)
-    J = -1./2 * log1pexp(J_input)
+    log_J = tanh_scale * np.tanh(J_input / tanh_scale) if tanh_scale else J_input
+    J = -1./2 * log1pexp(log_J)
     return make_tuple(J, h)
 
 

@@ -35,9 +35,9 @@ def natural_to_standard(natparam):
     return nu, S, M, K
 
 
-def expectedstats_standard(nu, S, M, K, fudge=1e-8):
+def expectedstats_standard(nu, S, M, K, fudge=1e-3):
     m = M.shape[0]
-    E_Sigmainv = nu*symmetrize(np.linalg.inv(S)) + fudge*np.eye(S.shape[0])
+    E_Sigmainv = nu*np.linalg.inv(symmetrize(S) + fudge*np.eye(S.shape[0]))
     E_Sigmainv_A = nu*np.linalg.solve(S, M)
     E_AT_Sigmainv_A = m*K + nu*symmetrize(np.dot(M.T, np.linalg.solve(S, M))) \
         + fudge*np.eye(K.shape[0])

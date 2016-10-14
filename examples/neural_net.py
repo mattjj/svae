@@ -21,12 +21,21 @@ def accuracy(mlp, inputs, targets):
     return tf.reduce_mean(tf.to_float(tf.equal(target_class, predicted_class)))
 
 def make_table(column_labels):
+    column_labels = [' Epoch', '  Time'] + column_labels
     lens = list(map(len, column_labels))
     print(' | '.join('{{:>{}}}'.format(l) for l in lens).format(*column_labels))
-    row_format = ' | '.join(['{{:{}d}}'.format(lens[0])]
-                            + ['{{:{}.4f}}'.format(l) for l in lens[1:]])
-    def print_row(i, vals):
-        print(row_format.format(i, *vals))
+
+    time_format = '{{:{}.2f}}'
+    epoch_format = '{{:{}d}}'
+    format_strings = [epoch_format, time_format] + ['{{:{}.4f}}'] * len(lens[2:])
+    row_format = ' | '.join(s.format(l) for s, l in zip(format_strings, lens))
+
+    outer = {'i': 0, 'start_time': time()}  # no nonlocal keyword in Python 2.7
+    def print_row(vals):
+        elapsed_time = time() - outer['start_time']
+        print(row_format.format(outer['i'], elapsed_time, *vals))
+        outer['i'] += 1
+
     return print_row
 
 def load_mnist():
@@ -80,10 +89,10 @@ if __name__ == '__main__':
     with tf.Session() as sess:
         sess.run(init_op)
 
-        print_row = make_table(['Epoch', 'Train accuracy', 'Test accuracy'])
+        print_row = make_table(['Train accuracy', 'Test accuracy'])
         print_values = train_accuracy, test_accuracy
 
         for i in range(num_epochs*num_batches):
             sess.run(train_op)
             if i % num_batches == 0:
-                print_row(i // num_batches, sess.run(print_values))
+                print_row(sess.run(print_values))

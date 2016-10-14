@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 import numpy as np
 import tensorflow as tf
+import matplotlib.pyplot as plt
 
 from data import load_mnist, to_gpu
 from svae.tf_nnet import init_mlp, tanh, gaussian_mean, make_loglike
@@ -53,8 +54,11 @@ if __name__ == '__main__':
     # run
     with tf.Session() as sess:
         sess.run(init_op)
-
         for i in range(num_epochs*num_batches):
             sess.run(train_op)
             if i % num_batches == 0:
                 print(sess.run(cost))
+
+        forward_samples = sess.run(decode(eps[:,0,:])[0])
+
+    plt.matshow(np.reshape(forward_samples[0], (28, 28)),) cmap=plt.cm.gray)

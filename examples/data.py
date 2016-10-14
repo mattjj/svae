@@ -3,11 +3,12 @@ from __future__ import print_function
 from future.standard_library import install_aliases
 install_aliases()
 
+import numpy as np
+import tensorflow as tf
 import os
 import gzip
 import struct
 import array
-import numpy as np
 from urllib.request import urlretrieve
 
 def download(url, filename):
@@ -42,3 +43,23 @@ def mnist():
     test_labels  = parse_labels('data/t10k-labels-idx1-ubyte.gz')
 
     return train_images, train_labels, test_images, test_labels
+
+def load_mnist():
+    partial_flatten = lambda x : np.reshape(x, (x.shape[0], np.prod(x.shape[1:])))
+    one_hot = lambda x, k: np.array(x[:,None] == np.arange(k)[None, :], dtype=int)
+    train_images, train_labels, test_images, test_labels = mnist()
+    train_images = partial_flatten(train_images) / 255.0
+    test_images  = partial_flatten(test_images)  / 255.0
+    train_labels = one_hot(train_labels, 10)
+    test_labels = one_hot(test_labels, 10)
+    N = train_images.shape[0]
+    return N, (train_images, train_labels, test_images, test_labels)
+
+def to_gpu(dataset):
+    num_data, numpy_data = dataset
+
+    const = lambda x: tf.constant(x, tf.float32)
+    with tf.device('/gpu:0'):
+        tf_data = map(const, numpy_data)
+
+    return num_data, tf_data

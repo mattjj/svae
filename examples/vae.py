@@ -2,11 +2,9 @@ from __future__ import division, print_function
 import numpy as np
 import tensorflow as tf
 
-import data_mnist
+from data import load_mnist, to_gpu
 from svae.tf_nnet import init_mlp, tanh, gaussian_mean, make_loglike
 
-
-### vae functions
 
 def kl(mu, sigmasq):
     return -0.5*tf.reduce_sum(1. + tf.log(sigmasq) - mu**2. - sigmasq)
@@ -16,27 +14,6 @@ def monte_carlo_elbo(encode, loglike, batch, eps):
     mu, sigmasq = map(expand, encode(batch))
     z_sample = mu + tf.sqrt(sigmasq) * eps
     return loglike(z_sample, batch) - kl(mu, sigmasq)
-
-### data loading
-
-def load_mnist():
-    # load as numpy arrays
-    partial_flatten = lambda x : np.reshape(x, (x.shape[0], np.prod(x.shape[1:])))
-    one_hot = lambda x, k: np.array(x[:,None] == np.arange(k)[None, :], dtype=int)
-    train_images, train_labels, test_images, test_labels = data_mnist.mnist()
-    train_images = partial_flatten(train_images) / 255.0
-    test_images  = partial_flatten(test_images)  / 255.0
-    train_labels = one_hot(train_labels, 10)
-    test_labels = one_hot(test_labels, 10)
-    num_data = train_images.shape[0]
-    data = train_images, train_labels, test_images, test_labels
-
-    # load onto gpu
-    const = lambda x: tf.constant(x, tf.float32)
-    with tf.device('/gpu:0'):
-        tf_data = map(const, data)
-
-    return num_data, tf_data
 
 
 if __name__ == '__main__':
@@ -55,7 +32,7 @@ if __name__ == '__main__':
     loglike = make_loglike(decode)
 
     # load data and set up batch-getting function
-    num_data, (train_images, train_labels, test_images, test_labels) = load_mnist()
+    num_data, (train_images, train_labels, test_images, test_labels) = to_gpu(load_mnist())
     num_batches = num_data // batch_size
 
     def get_batch(step):

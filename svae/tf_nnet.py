@@ -40,7 +40,7 @@ def init_mlp(m, layer_specs):
 
 @curry
 def gaussian_mean(inputs, sigmoid_mean=False):
-    mu_input, sigmasq_input = tf.split(1, 2, inputs)
+    mu_input, sigmasq_input = tf.split(tf.rank(inputs)-1, 2, inputs)
     mu = sigmoid(mu_input) if sigmoid_mean else mu_input
     sigmasq = log1p(tf.exp(sigmasq_input))
     return mu, sigmasq
@@ -49,12 +49,12 @@ def gaussian_mean(inputs, sigmoid_mean=False):
 
 def _diagonal_gaussian_loglike(x, mu, sigmasq):
   mu_shape = tf.shape(mu, out_type=tf.float32)
-  T, K, p = mu_shape[0], mu_shape[1], mu_shape[1]
-  return -T*p/2.*tf.log(2.*np.pi) \
-      + (-1./2*tf.sum((tf.expand_dims(x, 1) - mu)**2 / sigmasq)
-         -1./2*tf.sum(tf.log(sigmasq))) / K
+  num_data, num_samples, num_dim = mu_shape[0], mu_shape[1], mu_shape[1]
+  return -num_data*num_dim/2.*tf.log(2.*np.pi) \
+      + (-1./2*tf.reduce_sum((tf.expand_dims(x, 1) - mu)**2 / sigmasq)
+         -1./2*tf.reduce_sum(tf.log(sigmasq))) / num_samples
 
 def make_loglike(gaussian_mlp):
-    def loglike(params, inputs, targets):
-        return _diagonal_gaussian_loglike(targets, *gaussian_mlp(params, inputs))
+    def loglike(inputs, targets):
+        return _diagonal_gaussian_loglike(targets, *gaussian_mlp(inputs))
     return loglike

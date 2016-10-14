@@ -6,13 +6,14 @@ from data import load_mnist, to_gpu
 from svae.tf_nnet import init_mlp, tanh, gaussian_mean, make_loglike
 
 
+expand = lambda x: tf.expand_dims(x, 1)
+
 def kl(mu, sigmasq):
     return -0.5*tf.reduce_sum(1. + tf.log(sigmasq) - mu**2. - sigmasq)
 
 def monte_carlo_elbo(encode, loglike, batch, eps):
-    expand = lambda x: tf.expand_dims(x, 1)
-    mu, sigmasq = map(expand, encode(batch))
-    z_sample = mu + tf.sqrt(sigmasq) * eps
+    mu, sigmasq = encode(batch)
+    z_sample = expand(mu) + expand(tf.sqrt(sigmasq)) * eps
     return loglike(z_sample, batch) - kl(mu, sigmasq)
 
 

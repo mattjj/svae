@@ -55,7 +55,7 @@ if __name__ == '__main__':
     num_epochs = 100
 
     # set up model and parameters
-    mlp, mlp_params = init_mlp(784, [(200, tanh), (100, tanh), (10, identity)])
+    mlp = init_mlp(784, [(200, tanh), (100, tanh), (10, identity)])
 
     # load data and set up batch-getting function
     N, (train_images, train_labels, test_images, test_labels) = load_mnist()
@@ -68,9 +68,9 @@ if __name__ == '__main__':
 
     # set up objective and other progress measures
     step = tf.Variable(0, trainable=False)
-    cost = negative_log_likelihood(mlp(mlp_params), get_batch(step))
-    train_accuracy = accuracy(mlp(mlp_params), train_images, train_labels)
-    test_accuracy = accuracy(mlp(mlp_params), test_images, test_labels)
+    cost = negative_log_likelihood(mlp, get_batch(step))
+    train_accuracy = accuracy(mlp, train_images, train_labels)
+    test_accuracy = accuracy(mlp, test_images, test_labels)
 
     # set up ops
     train_op = tf.train.AdamOptimizer(step_size).minimize(cost, global_step=step)

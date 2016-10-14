@@ -55,7 +55,7 @@ if __name__ == '__main__':
     num_epochs = 100
 
     # set up model and parameters
-    mlp = init_mlp(784, [(200, tanh), (100, tanh), (10, identity)])
+    mlp, mlp_params = init_mlp(784, [(200, tanh), (100, tanh), (10, identity)])
 
     # load data and set up batch-getting function
     N, (train_images, train_labels, test_images, test_labels) = load_mnist()

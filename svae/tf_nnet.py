@@ -34,7 +34,7 @@ def init_mlp(m, layer_specs):
     nonlinearities = [l[1] for l in layer_specs]
     params = [init_layer(m, n, *spec[2:])
               for m, n, spec in zip(dims[:-1], dims[1:], layer_specs)]
-    return _mlp(nonlinearities, params)
+    return _mlp(nonlinearities, params), params
 
 ### special output layers to produce Gaussian parameters
 

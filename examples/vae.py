@@ -43,8 +43,11 @@ if __name__ == '__main__':
     # settings
     latent_dim = 10   # number of latent dimensions
     obs_dim = 784     # dimensionality of observations
+
     num_samples = 1   # number of Monte Carlo samples per elbo evaluation
     step_size = 1e-3  # step size for the optimizer
+    batch_size = 128  # number of examples in minibatch update
+    num_epochs = 10   # number of passes over the training data
 
     # set up model and parameters
     encode, encode_params = init_mlp(obs_dim, [(200, tanh), (2*latent_dim, gaussian_mean)])

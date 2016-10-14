@@ -1,4 +1,5 @@
 from __future__ import division
+import numpy as np
 import tensorflow as tf
 sigmoid, relu, tanh = tf.nn.sigmoid, tf.nn.relu, tf.nn.tanh
 from toolz import curry
@@ -11,6 +12,11 @@ from util import compose, identity
 log1p = lambda x: tf.log(1. + tf.exp(x))
 identity = lambda x: x
 
+def make_ravelers(inputs):
+    in_shape = tf.shape(inputs)
+    ravel = lambda x: tf.reshape(x, (-1, in_shape[-1]))
+    unravel = lambda x: tf.reshape(x, (in_shape[0], in_shape[1], -1))
+    return ravel, unravel
 
 ### basic layer stuff
 
@@ -48,13 +54,15 @@ def gaussian_mean(inputs, sigmoid_mean=False):
 ### turn a gaussian_mean MLP into a log likelihood function
 
 def _diagonal_gaussian_loglike(x, mu, sigmasq):
-  mu_shape = tf.shape(mu, out_type=tf.float32)
-  num_data, num_samples, num_dim = mu_shape[0], mu_shape[1], mu_shape[1]
-  return -num_data*num_dim/2.*tf.log(2.*np.pi) \
-      + (-1./2*tf.reduce_sum((tf.expand_dims(x, 1) - mu)**2 / sigmasq)
-         -1./2*tf.reduce_sum(tf.log(sigmasq))) / num_samples
+    mu_shape = tf.to_float(tf.shape(mu))
+    num_data, num_samples, num_dim = mu_shape[0], mu_shape[1], mu_shape[1]
+    return -num_data*num_dim/2.*tf.log(2.*np.pi) \
+        + (-1./2*tf.reduce_sum((tf.expand_dims(x, 1) - mu)**2 / sigmasq)
+           -1./2*tf.reduce_sum(tf.log(sigmasq))) / num_samples
 
 def make_loglike(gaussian_mlp):
     def loglike(inputs, targets):
-        return _diagonal_gaussian_loglike(targets, *gaussian_mlp(inputs))
+        ravel, unravel = make_ravelers(inputs)
+        mu, sigmasq = map(unravel, gaussian_mlp(ravel(inputs)))
+        return _diagonal_gaussian_loglike(targets, mu, sigmasq)
     return loglike

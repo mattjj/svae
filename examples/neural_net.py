@@ -11,6 +11,8 @@ from svae.tf_nnet import init_mlp, tanh, identity
 # of svae.nnet. It should serve as an example of how to use svae.nnet.
 
 
+### neural net functions
+
 def negative_log_likelihood(mlp, batch):
     inputs, targets = batch
     return tf.reduce_mean(cross_entropy(mlp(inputs), targets))
@@ -20,23 +22,7 @@ def accuracy(mlp, inputs, targets):
     predicted_class = tf.argmax(mlp(inputs), 1)
     return tf.reduce_mean(tf.to_float(tf.equal(target_class, predicted_class)))
 
-def make_table(column_labels):
-    column_labels = [' Epoch', '  Time'] + column_labels
-    lens = list(map(len, column_labels))
-    print(' | '.join('{{:>{}}}'.format(l) for l in lens).format(*column_labels))
-
-    time_format = '{{:{}.2f}}'
-    epoch_format = '{{:{}d}}'
-    format_strings = [epoch_format, time_format] + ['{{:{}.4f}}'] * len(lens[2:])
-    row_format = ' | '.join(s.format(l) for s, l in zip(format_strings, lens))
-
-    outer = {'i': 0, 'start_time': time()}  # no nonlocal keyword in Python 2.7
-    def print_row(vals):
-        elapsed_time = time() - outer['start_time']
-        print(row_format.format(outer['i'], elapsed_time, *vals))
-        outer['i'] += 1
-
-    return print_row
+### data loading
 
 def load_mnist():
     # load as numpy arrays
@@ -56,6 +42,26 @@ def load_mnist():
         tf_data = map(const, data)
 
     return N, tf_data
+
+### printing
+
+def make_table(column_labels):
+    column_labels = [' Epoch', '  Time'] + column_labels
+    lens = list(map(len, column_labels))
+    print(' | '.join('{{:>{}}}'.format(l) for l in lens).format(*column_labels))
+
+    time_format = '{{:{}.2f}}'
+    epoch_format = '{{:{}d}}'
+    format_strings = [epoch_format, time_format] + ['{{:{}.4f}}'] * len(lens[2:])
+    row_format = ' | '.join(s.format(l) for s, l in zip(format_strings, lens))
+
+    outer = {'i': 0, 'start_time': time()}  # no nonlocal keyword in Python 2.7
+    def print_row(vals):
+        elapsed_time = time() - outer['start_time']
+        print(row_format.format(outer['i'], elapsed_time, *vals))
+        outer['i'] += 1
+
+    return print_row
 
 if __name__ == '__main__':
     # settings

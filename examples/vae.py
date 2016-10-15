@@ -59,6 +59,6 @@ if __name__ == '__main__':
             if i % num_batches == 0:
                 print(sess.run(cost))
 
-        forward_samples = sess.run(decode(eps[:,0,:])[0])
+        forward_samples = sess.run(decode(eps[:,0,:]))[0]
 
-    plt.matshow(np.reshape(forward_samples[0], (28, 28)),) cmap=plt.cm.gray)
+    plt.matshow(np.reshape(forward_samples[0], (28, 28)), cmap=plt.cm.gray)

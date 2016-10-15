@@ -12,12 +12,6 @@ from util import compose, identity
 log1p = lambda x: tf.log(1. + tf.exp(x))
 identity = lambda x: x
 
-def make_ravelers(inputs):
-    in_shape = tf.shape(inputs)
-    ravel = lambda x: tf.reshape(x, (-1, in_shape[-1]))
-    unravel = lambda x: tf.reshape(x, (in_shape[0], in_shape[1], -1))
-    return ravel, unravel
-
 ### basic layer stuff
 
 layer = curry(lambda nonlin, W, b, inputs: nonlin(tf.matmul(inputs, W) + b))
@@ -55,14 +49,20 @@ def gaussian_mean(inputs, sigmoid_mean=False):
 
 def _diagonal_gaussian_loglike(x, mu, sigmasq):
     mu_shape = tf.to_float(tf.shape(mu))
-    num_data, num_samples, num_dim = mu_shape[0], mu_shape[1], mu_shape[1]
+    num_data, num_samples, num_dim = mu_shape[0], mu_shape[1], mu_shape[2]
     return -num_data*num_dim/2.*tf.log(2.*np.pi) \
         + (-1./2*tf.reduce_sum((tf.expand_dims(x, 1) - mu)**2 / sigmasq)
            -1./2*tf.reduce_sum(tf.log(sigmasq))) / num_samples
 
+def _make_ravelers(inputs):
+    in_shape = tf.shape(inputs)
+    ravel = lambda x: tf.reshape(x, (-1, in_shape[2]))
+    unravel = lambda x: tf.reshape(x, (in_shape[0], in_shape[1], -1))
+    return ravel, unravel
+
 def make_loglike(gaussian_mlp):
     def loglike(inputs, targets):
-        ravel, unravel = make_ravelers(inputs)
+        ravel, unravel = _make_ravelers(inputs)
         mu, sigmasq = map(unravel, gaussian_mlp(ravel(inputs)))
         return _diagonal_gaussian_loglike(targets, mu, sigmasq)
     return loglike

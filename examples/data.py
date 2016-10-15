@@ -55,11 +55,13 @@ def load_mnist():
     N = train_images.shape[0]
     return N, (train_images, train_labels, test_images, test_labels)
 
-def to_gpu(dataset):
-    num_data, numpy_data = dataset
+
+def to_gpu(dataset, device=None):
+    num_data, data = dataset
+    device = device or os.getenv('GPU', '/gpu:0')
 
     const = lambda x: tf.constant(x, tf.float32)
-    with tf.device('/gpu:0'):
-        tf_data = map(const, numpy_data)
+    with tf.device(device):
+        tf_data = map(const, data)
 
     return num_data, tf_data

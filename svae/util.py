@@ -32,14 +32,10 @@ def rle(stateseq):
     return stateseq[pos[:-1]], np.diff(pos)
 
 isarray = lambda x: hasattr(x, 'ndim')
-
-def partial_flatten(a, axes):
-    return np.reshape(a, a.shape[:-axes] + (-1,))
-
-def tensordot(a, b, axes=2):
-    return np.dot(partial_flatten(a, axes), partial_flatten(b, axes).T)
-
 flat = lambda x: flatten(x)[0]
+partial_flat = lambda a, axes: np.reshape(a, a.shape[:-axes] + (-1,))
+tensordot = lambda a, b, axes=2: np.dot(partial_flat(a, axes), partial_flat(b, axes).T)
+outer = lambda x, y: x[...,:,None] * y[...,None,:]
 
 ### functions and monads
 

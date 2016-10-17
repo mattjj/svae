@@ -1,43 +1,42 @@
 from __future__ import division
 import autograd.numpy as np
-from autograd.scipy.special import multigammaln
+from autograd.scipy.special import multigammaln, digamma
 from autograd import grad
 from autograd.util import make_tuple
 
-import mniw  # niw is a special case of mniw
+from svae.util import symmetrize, outer
 from gaussian import pack_dense, unpack_dense
-from svae.util import symmetrize
+import mniw  # niw is a special case of mniw
 
-# TODO maybe don't make this a special case of MNIW, since that's confusing
-# TODO make these functions work with the new dense repr
+# NOTE: can compute Cholesky then avoid the other cubic computations,
+# but numpy/scipy has no dpotri or solve_triangular that broadcasts
+# NOTE: can increase parallelism in some of these formulas (with repeated work)
 
-def expectedstats(natparam):
-    return remove_dims(*mniw.expectedstats(add_dims(*natparam)))
+def expectedstats(natparam, fudge=1e-8):
+    S, m, kappa, nu = natural_to_standard(natparam)
+    d = m.shape[-1]
+
+    E_J = nu[...,None,None] * symmetrize(np.linalg.inv(S)) + fudge * np.eye(d)
+    E_h = np.matmul(E_J, m[...,None])[...,0]
+    E_hTJinvh = d/kappa + np.matmul(m[...,None,:], E_h[...,None])[...,0,0]
+    E_logdetJ = (np.sum(digamma((nu[:,None] - np.arange(d)[None,:])/2.)) \
+                 + d*np.log(2.)) - np.linalg.slogdet(S)[1]
+
+    return pack_dense((-1./2 * E_J, E_h, -1./2 * E_hTJinvh, 1./2 * E_logdetJ))
 
 def logZ(natparam):
-    return mniw.logZ(add_dims(*natparam))
+    S, m, kappa, nu = natural_to_standard(natparam)
+    d = m.shape[-1]
+    return np.sum(d*nu/2.*np.log(2.) + multigammaln(nu/2., d)
+                  - nu/2.*np.linalg.slogdet(S)[1] + d/2.*np.log(kappa))
 
-def natural_to_standard(natparam
+def natural_to_standard(natparam):
+    A, b, kappa, nu = unpack_dense(natparam)
+    m = b / kappa[:,None]
+    S = A - outer(b, m)
+    return S, m, kappa, nu
 
-### extra stuff
-
-al2d = np.atleast_2d
-add_dims = lambda A, b, c, d: (al2d(c), b[None,:], A, d)
-remove_dims = lambda A, B, C, d: make_tuple(C, B.ravel(), A[0,0], d)
-
-def natural_sample(natparam):
-    A, Sigma = mniw.natural_sample(add_dims(*natparam))
-    return np.ravel(A), Sigma
-
-def standard_to_natural(nu, S, m, kappa):
-    A, B, C, d = mniw.standard_to_natural(nu, S, m[:,None], al2d(kappa))
-    return C, B.ravel(), A[0,0], d
-
-def expected_standard_params(natparam):
-    J_natural, h, _, _ = expectedstats(natparam)
-    J = -2*J_natural
-
-    mu = np.linalg.solve(J, h)
-    Sigma = np.linalg.inv(J)
-
-    return mu, Sigma
+def standard_to_natural(S, m, kappa, nu):
+    A = S + kappa * outer(m, m)
+    b = kappa * m
+    return pack_dense((A, b, kappa, nu))

@@ -1,5 +1,12 @@
 from __future__ import division
 import autograd.numpy as np
+import autograd.numpy.random as npr
+from functools import partial
+
+from svae.util import T
+
+# NOTE: can compute Cholesky then avoid the other cubic computations,
+# but numpy/scipy has no dpotri or solve_triangular that broadcasts
 
 def expectedstats(natparam):
     neghalfJ, h, _, _ = unpack_dense(natparam)
@@ -15,33 +22,37 @@ def logZ(natparam):
     L = np.linalg.cholesky(J)
     return 1./2 * np.sum(h * np.linalg.solve(J, h)) \
         - np.sum(np.log(np.diagonal(L, axis1=-1, axis2=-2))) \
-        - np.sum(a) - np.sum(b)
+        - np.sum(a + b)
 
-### packing and unpacking node potentials into dense matrices
+def natural_sample(natparam, num_samples):
+   neghalfJ, h, _, _ = unpack_dense(natparam)
+   sample_shape = np.shape(h) + (num_samples,)
+   J = -2*neghalfJ
+   L = np.linalg.cholesky(J)
+   return np.linalg.solve(J, h) + np.linalg.solve(T(L), npr.randn(*sample_shape))
+
+### packing and unpacking natural parameters and statistics into dense matrices
 
 vs, hs = partial(np.concatenate, axis=-2), partial(np.concatenate, axis=-1)
-tr = partial(np.swapaxes, axis1=-1, axis2=-2)
 
-def pack_dense(node_potentials):
-    '''Packs (J, h, a, b) tuple, where J has shape (T, N), h has shape (T, N),
-    and a and b both have shape (T, 1), into a dense ndarray of shape
-    (T, N+2, N+2), so we can use tensordot. If argument is of the form (J, h),
-    then a and b are set to zero.'''
-    if len(node_potentials) not in {2, 4}: raise ValueError
+def pack_dense(tup):
+    '''Used for packing Gaussian natural parameters, Gaussian statistics, or NIW
+    parameters into a dense ndarray so that we can use tensordot for all the
+    linear contraction operations.'''
+    # we don't use a symmetric embedding because factors of 1/2 on h are a pain
+    J, h = tup[:2]
+    leading_dim, N = h.shape[:-1], h.shape[-1]
+    z1, z2 = np.zeros(leading_dim + (N, 1)), np.zeros(leading_dim + (1, 1))
+    a, b = (z2, z2) if len(tup) == 2 else tup[2:]
 
-    Jdiag, h = node_potentials[:2]
-    J = Jdiag[...,None] * np.eye(N)[None,...]
-    h = 1./2 * h[...,None]
-    T, N = h.shape
-    z1, z2 = np.zeros((T, N, 1)), np.zeros((T, 1, 1))
-    a, b = node_potentials[2:] if len(node_potentials) == 4 else (z2, z2)
+    J = J[...,None] * np.eye(N)[None,...] if J.ndim == h.ndim else J
+    h = h[...,None]
+    a, b = np.reshape(a, leading_dim + (1, 1)), np.reshape(b, leading_dim + (1, 1))
 
-    return vs(( hs(( J,      h,  z1 )),
-                hs(( tr(h),  a,  z2 )),
-                hs(( tr(z1), z2, b  ))))
+    return vs(( hs(( J,     h,  z1 )),
+                hs(( T(z1), a,  z2 )),
+                hs(( T(z1), z2, b  ))))
 
 def unpack_dense(arr):
-    '''Unpacks dense ndarray of shape (T, N+2, N+2) into four parts, with shapes
-      (T, N, N), (T, N), (T,), and (T,).'''
-    T, N = arr.shape[0], arr.shape[1] - 2
-    return arr[:,:N, :N], arr[:,N,:N], arr[:,N,N], arr[:,N+1,N+1]
+    N = arr.shape[-1] - 2
+    return arr[...,:N, :N], arr[...,N,:N], arr[...,N,N], arr[...,N+1,N+1]

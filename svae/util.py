@@ -2,6 +2,7 @@ from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
 import autograd.scipy.linalg as spla
+from autograd.util import flatten
 from itertools import islice, imap, cycle
 import operator
 from functools import partial
@@ -19,6 +20,8 @@ sigmoid = lambda x: 1. / (1. + np.exp(-x))
 relu = lambda x: np.maximum(x, 0.)
 log1pexp = primitive(lambda x: np.log1p(np.exp(x)))
 log1pexp.defgrad(lambda ans, x: lambda g: g / (1 + np.exp(-x)))
+normalize = lambda x: x / np.sum(x, axis=-1, keepdims=True)
+softmax = lambda x: normalize(np.exp(x - np.max(x, axis=-1, keepdims=True)))
 
 
 ### misc
@@ -30,6 +33,13 @@ def rle(stateseq):
 
 isarray = lambda x: hasattr(x, 'ndim')
 
+def partial_flatten(a, axes):
+    return np.reshape(a, a.shape[:-axes] + (-1,))
+
+def tensordot(a, b, axes=2):
+    return np.dot(partial_flatten(a, axes), partial_flatten(b, axes).T)
+
+flat = lambda x: flatten(x)[0]
 
 ### functions and monads
 

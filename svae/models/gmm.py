@@ -3,121 +3,51 @@ import autograd.numpy as np
 import autograd.numpy.random as npr
 from autograd.scipy.misc import logsumexp
 from itertools import repeat
+from functools import partial
 
-from svae.util import contract, add, sub, unbox, shape
-from svae.lds import niw, gaussian
-from svae.hmm import dirichlet
+from svae.util import unbox, getval, shape, tensordot, flatten, flat
+from svae.distributions import dirichlet, categorical, niw, gaussian
 
-normalize = lambda x: x / np.sum(x, 1, keepdims=True)
+# TODO are we computing Proposition D.4 correctly?
 
+### inference functions for the SVAE interface
 
-### GMM mean field inference functions
+def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+    stats, local_natparam, local_kl = local_meanfield(global_natparam, nn_potentials)
+    samples = gaussian.natural_sample(local_natparam[1], num_samples)
+    global_kl = prior_kl(global_natparam, prior_natparam)
+    return samples, unbox(stats), global_kl, local_kl
 
-# TODO break out optimize local mean field loop?
+def make_encoder_decoder(recognize, decode):
+    def encode_mean(data, natparam, recogn_params):
+        nn_potentials = recognize(recogn_params, data)
+        (_, gaussian_stats), _, _ = local_meanfield(natparam, nn_potentials)
+        _, Ex, _, _ = gaussian_stats
+        return Ex
 
-def optimize_local_meanfield(global_natparam, node_potentials, tol=1e-3, max_iter=100):
-    label_global, gaussian_global = global_natparam
+    def decode_mean(z, phi):
+        mu, _ = decode(z, phi)
+        return mu.mean(axis=1)
 
-    local_vlb = -np.inf
-    label_stats = initialize_local_meanfield(label_global, node_potentials)
-    for _ in xrange(max_iter):
-        gaussian_natparam, gaussian_stats, gaussian_vlb = \
-            gaussian_meanfield(gaussian_global, unbox(node_potentials), label_stats)
-        label_natparam, label_stats, label_vlb = \
-            label_meanfield(label_global, gaussian_global, gaussian_stats)
+    return encode_mean, decode_mean
 
-        local_vlb, prev_local_vlb = label_vlb + gaussian_vlb, local_vlb
-        if abs(local_vlb - prev_local_vlb) < tol:
-            break
-    else:
-        print 'iteration limit reached'
+### GMM prior on \theta = (\pi, {(\mu_k, \Sigma_k)}_{k=1}^K)
 
-    # recompute values that depend on node_potentials at optimum
-    gaussian_natparam, gaussian_stats, gaussian_vlb = \
-        gaussian_meanfield(gaussian_global, node_potentials, label_stats)
-    label_natparam, label_stats, label_vlb = \
-        label_meanfield(label_global, gaussian_global, gaussian_stats)
+def prior_logZ(gmm_natparam):
+    dirichlet_natparam, niw_natparams = gmm_natparam
+    return dirichlet.logZ(dirichlet_natparam) + niw.logZ(niw_natparams)
 
-    stats = label_stats, gaussian_stats
-    local_natparams = label_natparam, gaussian_natparam
-    vlbs = label_vlb, gaussian_vlb
+def prior_expectedstats(gmm_natparam):
+    dirichlet_natparam, niw_natparams = natparam
+    return dirichlet.expectedstats(natparam[0]), niw.expectedstats(natparam[1])
 
-    return stats, local_natparams, vlbs
+def prior_kl(global_natparam, prior_natparam):
+    expected_stats = flat(prior_expectedstats(global_natparam))
+    natparam_difference = flat(global_natparam) - flat(prior_natparam)
+    logZ_difference = prior_logZ(global_natparam) - prior_logZ(prior_natparam)
+    return np.dot(natparam_difference, expected_stats) - logZ_difference 
 
-def initialize_local_meanfield(label_global, node_potentials):
-    K = label_global.shape[0]
-    T = node_potentials[0].shape[0]
-    return normalize(npr.rand(T, K))
-
-def label_meanfield(label_global, gaussian_globals, gaussian_stats):
-    partial_contract = lambda a, b: \
-        sum(np.tensordot(x, y, axes=np.ndim(y)) for x, y in zip(a, b))
-
-    gaussian_local_natparams = map(niw.expectedstats, gaussian_globals)
-    node_params = np.array([
-        partial_contract(gaussian_stats, natparam) for natparam in gaussian_local_natparams]).T
-
-    local_natparam = dirichlet.expectedstats(label_global) + node_params
-    stats = normalize(np.exp(local_natparam  - logsumexp(local_natparam, axis=1, keepdims=True)))
-    vlb = np.sum(logsumexp(local_natparam, axis=1)) - contract(stats, node_params)
-
-    return local_natparam, stats, vlb
-
-def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
-    def make_full_potentials(node_potentials):
-        Jdiag, h = node_potentials[:2]
-        T, N = h.shape
-        return Jdiag[...,None] * np.eye(N)[None,...], h, np.zeros(T), np.zeros(T)
-
-    def get_local_natparam(gaussian_globals, node_potentials, label_stats):
-        local_natparams = [np.tensordot(label_stats, param, axes=1)
-                           for param in zip(*map(niw.expectedstats, gaussian_globals))]
-        return add(local_natparams, make_full_potentials(node_potentials))
-
-    def get_node_stats(gaussian_stats):
-        ExxT, Ex, En, En = gaussian_stats
-        return np.diagonal(ExxT, axis1=-1, axis2=-2), Ex, En
-
-    local_natparam = get_local_natparam(gaussian_globals, node_potentials, label_stats)
-    stats = gaussian.expectedstats(local_natparam)
-    vlb = gaussian.logZ(local_natparam) \
-        - contract(node_potentials, get_node_stats(stats)[:len(node_potentials)])
-
-    return local_natparam, stats, vlb
-
-
-### other inference functions used at optimum
-
-def gaussian_sample(local_natparams, num_samples):
-    from svae.lds.gaussian import natural_sample
-    Js, hs = local_natparams[:2]
-    return np.array([natural_sample(J, h, num_samples) for J, h in zip(Js, hs)])
-
-
-### GMM global operations
-
-def gmm_global_vlb(global_natparam, prior_natparam):
-    def gmm_prior_logZ(natparam):
-        dir_natparam, niw_natparams = natparam
-        return dirichlet.logZ(dir_natparam) + sum(map(niw.logZ, niw_natparams))
-
-    def gmm_prior_expectedstats(natparam):
-        dir_natparam, niw_natparams = natparam
-        return dirichlet.expectedstats(dir_natparam), map(niw.expectedstats, niw_natparams)
-
-    expected_stats = gmm_prior_expectedstats(global_natparam)
-    return contract(sub(prior_natparam, global_natparam), expected_stats) \
-        - (gmm_prior_logZ(prior_natparam) - gmm_prior_logZ(global_natparam))
-
-def get_global_stats(label_stats, gaussian_stats):
-    contract = lambda w: lambda p: np.tensordot(w, p, axes=1)
-    global_label_stats = np.sum(label_stats, axis=0)
-    global_gaussian_stats = tuple(map(contract(w), gaussian_stats) for w in label_stats.T)
-    return global_label_stats, global_gaussian_stats
-
-
-### prior initialization
-
+# TODO
 def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     def make_label_global_natparam(k, random):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
@@ -132,35 +62,83 @@ def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
 
     return label_global_natparam, gaussian_global_natparams
 
+### GMM mean field functions
 
-### inference functions
+def local_meanfield(global_natparam, node_potentials, tol=1e-3, max_iter=100):
+    label_global, gaussian_global = global_natparam
+    node_potentials = _pack_dense(node_potentials)
 
-def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
-    label_global_natparam, gaussian_global_natparams = global_natparam
+    # compute mean field fixed point using unboxed node_potentials
+    kl = np.inf
+    label_stats = _initialize_meanfield(label_global, node_potentials)
+    unboxed_node_potentials = getval(node_potentials)
+    for i in xrange(max_iter):
+        gaussian_natparam, gaussian_stats, gaussian_kl = \
+            _gaussian_meanfield(gaussian_global, unboxed_node_potentials, label_stats)
+        label_natparam, label_stats, label_kl = \
+            _label_meanfield(label_global, gaussian_global, gaussian_stats)
 
-    (label_stats, gaussian_stats), (_, gaussian_local_natparam), (label_vlb, gaussian_vlb) = \
-        optimize_local_meanfield(global_natparam, nn_potentials)
+        kl, prev_kl = label_kl + gaussian_kl, kl
+        if abs(kl - prev_kl) < tol:
+            break
+    else:
+        print 'iteration limit reached'
 
-    stats = get_global_stats(label_stats, gaussian_stats)
-    samples = gaussian_sample(gaussian_local_natparam, num_samples)
-    local_kl = -label_vlb - gaussian_vlb
-    global_kl = -gmm_global_vlb(global_natparam, prior_natparam)
+    # recompute values that depend on boxed node_potentials at optimum
+    gaussian_natparam, gaussian_stats, gaussian_kl = \
+        _gaussian_meanfield(gaussian_global, node_potentials, label_stats)
+    label_natparam, label_stats, label_kl = \
+        _label_meanfield(label_global, gaussian_global, gaussian_stats)
 
-    return samples, unbox(stats), global_kl, local_kl
+    # collect sufficient statistics for gmm prior
+    dirichlet_stats = np.sum(label_stats, 0)
+    niw_stats = _unpack_dense(tensordot(label_stats.T, gaussian_stats, 1))
 
-def make_encoder_decoder(recognize, decode):
-    def encode_mean(data, natparam, recogn_params):
-        nn_potentials = recognize(recogn_params, data)
-        (_, gaussian_stats), _, _ = optimize_local_meanfield(natparam, nn_potentials)
-        _, Ex, _, _ = gaussian_stats
-        return Ex
+    stats = dirichlet_stats, niw_stats
+    natparam = label_natparam, gaussian_natparam
+    kl = label_kl + gaussian_kl
+    return stats, natparam, kl
 
-    def decode_mean(z, phi):
-        mu, _ = decode(z, phi)
-        return mu.mean(axis=1)
+def _gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
+    global_potentials = tensordot(label_stats, niw.expectedstats(gaussian_globals), 1)
+    natparam = node_potentials + global_potentials
+    stats = gaussian.expectedstats(natparam)
+    kl = tensordot(node_potentials, stats, 3) - gaussian.logZ(natparam)
+    return natparam, stats, kl
 
-    return encode_mean, decode_mean
+def _label_meanfield(label_global, gaussian_globals, gaussian_stats):
+    global_potentials = dirichlet.expectedstats(label_global)
+    node_potentials = tensordot(gaussian_stats, gaussian_globals, 2)
+    natparam = node_potentials + global_potentials
+    stats = categorical.expectedstats(natparam)
+    kl = tensordot(stats, node_potentials) - categorical.logZ(natparam)
+    return natparam, stats, kl
 
+def _initialize_meanfield(label_global, node_potentials):
+    K = label_global.shape[0]
+    T = node_potentials[0].shape[0]
+    return normalize(npr.rand(T, K))
+
+### packing and unpacking node potentials into dense matrices
+
+def _pack_dense(node_potentials):
+    '''Turn (J, h) tuple, where J has shape (T, N) and h has shape (T, N),
+    into a dense ndarray of shape (T, N+2, N+2), so we can use tensordot.'''
+    Jdiag, h = node_potentials
+    vs, hs = partial(np.concatenate, axis=-2), partial(np.concatenate, axis=-1)
+    tr = partial(np.swapaxes, axis1=-1, axis2=-2)
+
+    J = Jdiag[...,None] * np.eye(N)[None,...]
+    h = 1./2 * h[...,None]
+    T, N = h.shape
+    z1, z2 = np.zeros((T, N, 1)), np.zeros((T, 1, 1))
+
+    return vs(( hs(( J,      h,  z1 )),
+                hs(( tr(h),  z2, z2 )),
+                hs(( tr(z1), z2, z2 ))))
+
+def _unpack_dense(arr):
+    raise NotImplementedError
 
 ### plotting util for 2D
 

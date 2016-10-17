@@ -60,8 +60,10 @@ def monad_runner(bind):
 
 ### matrices
 
+T = lambda X: np.swapaxes(X, axis1=-1, axis2=-2)
+
 def symmetrize(A):
-    return (A + A.T)/2.
+    return (A + T(A))/2.
 
 def solve_triangular(L, x, trans='N'):
     return spla.solve_triangular(L, x, lower=True, trans=trans)

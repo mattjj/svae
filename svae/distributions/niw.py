@@ -4,16 +4,12 @@ from autograd.scipy.special import multigammaln
 from autograd import grad
 from autograd.util import make_tuple
 
+import mniw  # niw is a special case of mniw
+from gaussian import pack_dense, unpack_dense
+from svae.util import symmetrize
+
 # TODO maybe don't make this a special case of MNIW, since that's confusing
 # TODO make these functions work with the new dense repr
-
-import mniw
-
-# special case of mniw
-
-al2d = np.atleast_2d
-add_dims = lambda A, b, c, d: (al2d(c), b[None,:], A, d)
-remove_dims = lambda A, B, C, d: make_tuple(C, B.ravel(), A[0,0], d)
 
 def expectedstats(natparam):
     return remove_dims(*mniw.expectedstats(add_dims(*natparam)))
@@ -21,7 +17,13 @@ def expectedstats(natparam):
 def logZ(natparam):
     return mniw.logZ(add_dims(*natparam))
 
+def natural_to_standard(natparam
+
 ### extra stuff
+
+al2d = np.atleast_2d
+add_dims = lambda A, b, c, d: (al2d(c), b[None,:], A, d)
+remove_dims = lambda A, B, C, d: make_tuple(C, B.ravel(), A[0,0], d)
 
 def natural_sample(natparam):
     A, Sigma = mniw.natural_sample(add_dims(*natparam))

@@ -8,8 +8,6 @@ from functools import partial
 from svae.util import unbox, getval, shape, tensordot, flatten, flat
 from svae.distributions import dirichlet, categorical, niw, gaussian
 
-# TODO are we computing Proposition D.4 correctly?
-
 ### inference functions for the SVAE interface
 
 def run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
@@ -33,21 +31,7 @@ def make_encoder_decoder(recognize, decode):
 
 ### GMM prior on \theta = (\pi, {(\mu_k, \Sigma_k)}_{k=1}^K)
 
-def prior_logZ(gmm_natparam):
-    dirichlet_natparam, niw_natparams = gmm_natparam
-    return dirichlet.logZ(dirichlet_natparam) + niw.logZ(niw_natparams)
-
-def prior_expectedstats(gmm_natparam):
-    dirichlet_natparam, niw_natparams = natparam
-    return dirichlet.expectedstats(natparam[0]), niw.expectedstats(natparam[1])
-
-def prior_kl(global_natparam, prior_natparam):
-    expected_stats = flat(prior_expectedstats(global_natparam))
-    natparam_difference = flat(global_natparam) - flat(prior_natparam)
-    logZ_difference = prior_logZ(global_natparam) - prior_logZ(prior_natparam)
-    return np.dot(natparam_difference, expected_stats) - logZ_difference 
-
-# TODO
+# TODO make this function instantiate the new dense niw repr
 def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     def make_label_global_natparam(k, random):
         return alpha * np.ones(k) if not random else alpha + npr.rand(k)
@@ -61,6 +45,20 @@ def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     gaussian_global_natparams = [make_gaussian_global_natparam(N, random_scale > 0) for _ in xrange(K)]
 
     return label_global_natparam, gaussian_global_natparams
+
+def prior_logZ(gmm_natparam):
+    dirichlet_natparam, niw_natparams = gmm_natparam
+    return dirichlet.logZ(dirichlet_natparam) + niw.logZ(niw_natparams)
+
+def prior_expectedstats(gmm_natparam):
+    dirichlet_natparam, niw_natparams = natparam
+    return dirichlet.expectedstats(natparam[0]), niw.expectedstats(natparam[1])
+
+def prior_kl(global_natparam, prior_natparam):
+    expected_stats = flat(prior_expectedstats(global_natparam))
+    natparam_difference = flat(global_natparam) - flat(prior_natparam)
+    logZ_difference = prior_logZ(global_natparam) - prior_logZ(prior_natparam)
+    return np.dot(natparam_difference, expected_stats) - logZ_difference 
 
 ### GMM mean field functions
 

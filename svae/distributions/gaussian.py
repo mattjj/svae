@@ -29,7 +29,8 @@ def natural_sample(natparam, num_samples):
    sample_shape = np.shape(h) + (num_samples,)
    J = -2*neghalfJ
    L = np.linalg.cholesky(J)
-   return np.linalg.solve(J, h) + np.linalg.solve(T(L), npr.randn(*sample_shape))
+   noise = np.linalg.solve(T(L), npr.randn(*sample_shape))
+   return np.linalg.solve(J, h)[...,None,:] + T(noise)
 
 ### packing and unpacking natural parameters and statistics into dense matrices
 

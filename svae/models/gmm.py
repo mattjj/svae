@@ -46,8 +46,10 @@ def prior_logZ(gmm_natparam):
     return dirichlet.logZ(dirichlet_natparam) + niw.logZ(niw_natparams)
 
 def prior_expectedstats(gmm_natparam):
-    dirichlet_natparam, niw_natparams = natparam
-    return dirichlet.expectedstats(natparam[0]), niw.expectedstats(natparam[1])
+    dirichlet_natparam, niw_natparams = gmm_natparam
+    dirichlet_expectedstats = dirichlet.expectedstats(dirichlet_natparam)
+    niw_expectedstats = niw.expectedstats(niw_natparams)
+    return dirichlet_expectedstats, niw_expectedstats
 
 def prior_kl(global_natparam, prior_natparam):
     expected_stats = flat(prior_expectedstats(global_natparam))
@@ -160,10 +162,12 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
 
     def plot_components(ax, params):
         pgm_params, loglike_params, recogn_params = params
-        dirichlet_natparams, all_niw_natparams = pgm_params
+        dirichlet_natparams, niw_natparams = pgm_params
         normalize = lambda arr: np.minimum(1., arr / np.sum(arr) * num_clusters)
         weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
-        components = map(niw.expected_standard_params, all_niw_natparams)
+        get_component = lambda arr: (-2*np.linalg.solve(arr[:2,:2], arr[2,:2]),
+                                     np.linalg.inv(-2*arr[:2, :2]))
+        components = map(get_component, niw.expectedstats(niw_natparams))
         lines = repeat(None) if isinstance(ax, plt.Axes) else ax
         for weight, (mu, Sigma), line in zip(weights, components, lines):
             plot_ellipse(ax, weight, mu, Sigma, line)

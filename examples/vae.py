@@ -10,7 +10,7 @@ from svae.tf_nnet import init_mlp, tanh, gaussian_mean, make_loglike
 expand = lambda x: tf.expand_dims(x, 1)
 
 def kl(mu, sigmasq):
-    return -0.5*tf.reduce_sum(1. + tf.log(sigmasq) - mu**2. - sigmasq)
+    return -0.5*tf.reduce_sum(1. + tf.log(sigmasq) - mu**2. - sigmasq)  # TODO consider numerical stability here!
 
 def monte_carlo_elbo(encode, loglike, batch, eps):
     mu, sigmasq = encode(batch)
@@ -58,7 +58,3 @@ if __name__ == '__main__':
             sess.run(train_op)
             if i % num_batches == 0:
                 print(sess.run(cost))
-
-        forward_samples = sess.run(decode(eps[:,0,:]))[0]
-
-    plt.matshow(np.reshape(forward_samples[0], (28, 28)), cmap=plt.cm.gray)

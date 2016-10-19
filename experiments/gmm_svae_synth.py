@@ -46,7 +46,7 @@ if __name__ == "__main__":
     loglike = make_loglike(decode)
 
     # initialize gmm parameters
-    pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=1., random_scale=5.)
+    pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=1., random_scale=1.)
     params = pgm_params, loglike_params, recogn_params
 
     # set up encoder/decoder and plotting

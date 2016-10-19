@@ -20,7 +20,7 @@ def make_encoder_decoder(recognize, decode):
         nn_potentials = recognize(recogn_params, data)
         (_, gaussian_stats), _, _, _ = local_meanfield(natparam, nn_potentials)
         _, Ex, _, _ = gaussian.unpack_dense(gaussian_stats)
-        return Ex / 2.
+        return Ex
 
     def decode_mean(z, phi):
         mu, _ = decode(z, phi)
@@ -37,7 +37,7 @@ def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
         return niw.standard_to_natural(S, m, kappa, nu)
 
     dirichlet_natparam = alpha * (npr.rand(K) if random_scale else np.ones(K))
-    niw_natparam = np.tile(init_niw_natparam(N), (K, 1, 1))
+    niw_natparam = np.stack([init_niw_natparam(N) for _ in range(K)])
 
     return dirichlet_natparam, niw_natparam
 
@@ -55,7 +55,7 @@ def prior_kl(global_natparam, prior_natparam):
     expected_stats = flat(prior_expectedstats(global_natparam))
     natparam_difference = flat(global_natparam) - flat(prior_natparam)
     logZ_difference = prior_logZ(global_natparam) - prior_logZ(prior_natparam)
-    return np.dot(natparam_difference, expected_stats) - logZ_difference 
+    return np.dot(natparam_difference, expected_stats) - logZ_difference
 
 ### GMM mean field functions
 
@@ -135,9 +135,9 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
     observation_axis.plot(data[:,0], data[:,1], color='k', marker='.', linestyle='')
     observation_axis.set_aspect('equal')
     observation_axis.autoscale(False)
-    observation_axis.axis('off')
     latent_axis.set_aspect('equal')
-    latent_axis.axis('off')
+    # observation_axis.axis('off')
+    # latent_axis.axis('off')
     fig.tight_layout()
 
     def plot_encoded_means(ax, params):
@@ -164,17 +164,18 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
         pgm_params, loglike_params, recogn_params = params
         dirichlet_natparams, niw_natparams = pgm_params
         normalize = lambda arr: np.minimum(1., arr / np.sum(arr) * num_clusters)
-        weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
-        get_component = lambda arr: (-2*np.linalg.solve(arr[:2,:2], arr[2,:2]),
+        get_component = lambda arr: (-2*np.linalg.solve(arr[:2,:2], arr[:2,2]),
                                      np.linalg.inv(-2*arr[:2, :2]))
+        weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
         components = map(get_component, niw.expectedstats(niw_natparams))
         lines = repeat(None) if isinstance(ax, plt.Axes) else ax
         for weight, (mu, Sigma), line in zip(weights, components, lines):
             plot_ellipse(ax, weight, mu, Sigma, line)
+        import ipdb; ipdb.set_trace()
 
     def plot(i, val, params, grad):
         print('{}: {}'.format(i, val))
-        if (i % plot_every) == (-1 % plot_every):
+        if True or (i % plot_every) == (-1 % plot_every):
             plot_encoded_means(latent_axis.lines[0], params)
             plot_components(latent_axis.lines[1:], params)
             plt.pause(0.1)

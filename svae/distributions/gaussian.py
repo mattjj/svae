@@ -56,4 +56,4 @@ def pack_dense(tup):
 
 def unpack_dense(arr):
     N = arr.shape[-1] - 2
-    return arr[...,:N, :N], arr[...,N,:N], arr[...,N,N], arr[...,N+1,N+1]
+    return arr[...,:N, :N], arr[...,:N,N], arr[...,N,N], arr[...,N+1,N+1]

@@ -19,7 +19,7 @@ def expectedstats(natparam, fudge=1e-8):
     E_J = nu[...,None,None] * symmetrize(np.linalg.inv(S)) + fudge * np.eye(d)
     E_h = np.matmul(E_J, m[...,None])[...,0]
     E_hTJinvh = d/kappa + np.matmul(m[...,None,:], E_h[...,None])[...,0,0]
-    E_logdetJ = (np.sum(digamma((nu[:,None] - np.arange(d)[None,:])/2.)) \
+    E_logdetJ = (np.sum(digamma((nu[:,None] - np.arange(d)[None,:])/2.), -1) \
                  + d*np.log(2.)) - np.linalg.slogdet(S)[1]
 
     return pack_dense((-1./2 * E_J, E_h, -1./2 * E_hTJinvh, 1./2 * E_logdetJ))

@@ -22,7 +22,7 @@ def logZ(natparam):
     L = np.linalg.cholesky(J)
     return 1./2 * np.sum(h * np.linalg.solve(J, h)) \
         - np.sum(np.log(np.diagonal(L, axis1=-1, axis2=-2))) \
-        - np.sum(a + b)
+        + np.sum(a + b)
 
 def natural_sample(natparam, num_samples):
    neghalfJ, h, _, _ = unpack_dense(natparam)
@@ -37,22 +37,21 @@ def natural_sample(natparam, num_samples):
 vs, hs = partial(np.concatenate, axis=-2), partial(np.concatenate, axis=-1)
 
 def pack_dense(tup):
-    '''Used for packing Gaussian natural parameters, Gaussian statistics, or NIW
-    parameters into a dense ndarray so that we can use tensordot for all the
-    linear contraction operations.'''
+    '''Used for packing Gaussian natural parameters and statistics into a dense
+    ndarray so that we can use tensordot for all the linear contraction ops.'''
     # we don't use a symmetric embedding because factors of 1/2 on h are a pain
-    J, h = tup[:2]
-    leading_dim, N = h.shape[:-1], h.shape[-1]
+    A, b = tup[:2]
+    leading_dim, N = b.shape[:-1], b.shape[-1]
     z1, z2 = np.zeros(leading_dim + (N, 1)), np.zeros(leading_dim + (1, 1))
-    a, b = (z2, z2) if len(tup) == 2 else tup[2:]
+    c, d = (z2, z2) if len(tup) == 2 else tup[2:]
 
-    J = J[...,None] * np.eye(N)[None,...] if J.ndim == h.ndim else J
-    h = h[...,None]
-    a, b = np.reshape(a, leading_dim + (1, 1)), np.reshape(b, leading_dim + (1, 1))
+    A = A[...,None] * np.eye(N)[None,...] if A.ndim == b.ndim else A
+    b = b[...,None]
+    c, d = np.reshape(c, leading_dim + (1, 1)), np.reshape(d, leading_dim + (1, 1))
 
-    return vs(( hs(( J,     h,  z1 )),
-                hs(( T(z1), a,  z2 )),
-                hs(( T(z1), z2, b  ))))
+    return vs(( hs(( A,     b,  z1 )),
+                hs(( T(z1), c,  z2 )),
+                hs(( T(z1), z2, d  ))))
 
 def unpack_dense(arr):
     N = arr.shape[-1] - 2

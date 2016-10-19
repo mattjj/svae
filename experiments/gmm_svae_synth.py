@@ -57,5 +57,5 @@ if __name__ == "__main__":
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
     # optimize
-    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1., callback=plot),
+    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e2, callback=plot),
                  params, num_iters=1000, step_size=1e-2)

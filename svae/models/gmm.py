@@ -109,6 +109,7 @@ def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
     natparam = node_potentials + global_potentials
     stats = gaussian.expectedstats(natparam)
     kl = tensordot(node_potentials, stats, 3) - gaussian.logZ(natparam)
+    assert kl > 0
     return natparam, stats, kl
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
@@ -116,6 +117,7 @@ def label_meanfield(label_global, gaussian_globals, gaussian_stats):
     natparam = node_potentials + label_global
     stats = categorical.expectedstats(natparam)
     kl = tensordot(stats, node_potentials) - categorical.logZ(natparam)
+    assert kl > 0
     return natparam, stats, kl
 
 def initialize_meanfield(label_global, node_potentials):

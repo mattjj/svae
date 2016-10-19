@@ -60,17 +60,21 @@ def prior_kl(global_natparam, prior_natparam):
 ### GMM mean field functions
 
 def local_meanfield(global_natparam, node_potentials):
-    label_global, gaussian_global = global_natparam
+    dirichlet_natparam, niw_natparams = global_natparam
     node_potentials = gaussian.pack_dense(node_potentials)
 
+    # compute expected global parameters using current global factors
+    label_global = dirichlet.expectedstats(dirichlet_natparam)
+    gaussian_globals = niw.expectedstats(niw_natparams)
+
     # compute mean field fixed point using unboxed node_potentials
-    label_stats = meanfield_fixed_point(global_natparam, getval(node_potentials))
+    label_stats = meanfield_fixed_point(label_global, gaussian_globals, getval(node_potentials))
 
     # compute values that depend directly on boxed node_potentials at optimum
     gaussian_natparam, gaussian_stats, gaussian_kl = \
-        gaussian_meanfield(gaussian_global, node_potentials, label_stats)
+        gaussian_meanfield(gaussian_globals, node_potentials, label_stats)
     label_natparam, label_stats, label_kl = \
-        label_meanfield(label_global, gaussian_global, gaussian_stats)
+        label_meanfield(label_global, gaussian_globals, gaussian_stats)
 
     # collect sufficient statistics for gmm prior (sum across conditional iid)
     dirichlet_stats = np.sum(label_stats, 0)
@@ -83,15 +87,14 @@ def local_meanfield(global_natparam, node_potentials):
 
     return local_stats, prior_stats, natparam, kl
 
-def meanfield_fixed_point(global_natparam, node_potentials, tol=1e-3, max_iter=100):
-    label_global, gaussian_global = global_natparam
-    label_stats = initialize_meanfield(global_natparam, node_potentials)
+def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1e-3, max_iter=100):
     kl = np.inf
+    label_stats = initialize_meanfield(label_global, node_potentials)
     for i in xrange(max_iter):
         gaussian_natparam, gaussian_stats, gaussian_kl = \
-            gaussian_meanfield(gaussian_global, node_potentials, label_stats)
+            gaussian_meanfield(gaussian_globals, node_potentials, label_stats)
         label_natparam, label_stats, label_kl = \
-            label_meanfield(label_global, gaussian_global, gaussian_stats)
+            label_meanfield(label_global, gaussian_globals, gaussian_stats)
 
         kl, prev_kl = label_kl + gaussian_kl, kl
         if abs(kl - prev_kl) < tol:
@@ -102,28 +105,24 @@ def meanfield_fixed_point(global_natparam, node_potentials, tol=1e-3, max_iter=1
     return label_stats
 
 def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
-    global_potentials = np.tensordot(label_stats, niw.expectedstats(gaussian_globals), [1, 0])
+    global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
     natparam = node_potentials + global_potentials
     stats = gaussian.expectedstats(natparam)
     kl = tensordot(node_potentials, stats, 3) - gaussian.logZ(natparam)
     return natparam, stats, kl
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
-    global_potentials = dirichlet.expectedstats(label_global)
     node_potentials = tensordot(gaussian_stats, gaussian_globals, 2)
-    natparam = node_potentials + global_potentials
+    natparam = node_potentials + label_global
     stats = categorical.expectedstats(natparam)
     kl = tensordot(stats, node_potentials) - categorical.logZ(natparam)
     return natparam, stats, kl
 
-def initialize_meanfield(global_natparam, node_potentials):
-    label_global, gaussian_global = global_natparam
+def initialize_meanfield(label_global, node_potentials):
     T, K = node_potentials.shape[0], label_global.shape[0]
     return normalize(npr.rand(T, K))
 
 ### plotting util for 2D
-
-# TODO gotta update all this business
 
 def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
     import matplotlib.pyplot as plt
@@ -136,8 +135,8 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
     observation_axis.set_aspect('equal')
     observation_axis.autoscale(False)
     latent_axis.set_aspect('equal')
-    # observation_axis.axis('off')
-    # latent_axis.axis('off')
+    observation_axis.axis('off')
+    latent_axis.axis('off')
     fig.tight_layout()
 
     def plot_encoded_means(ax, params):
@@ -171,7 +170,6 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
         lines = repeat(None) if isinstance(ax, plt.Axes) else ax
         for weight, (mu, Sigma), line in zip(weights, components, lines):
             plot_ellipse(ax, weight, mu, Sigma, line)
-        import ipdb; ipdb.set_trace()
 
     def plot(i, val, params, grad):
         print('{}: {}'.format(i, val))

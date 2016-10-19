@@ -19,7 +19,7 @@ def expectedstats(natparam, fudge=1e-8):
     E_J = nu[...,None,None] * symmetrize(np.linalg.inv(S)) + fudge * np.eye(d)
     E_h = np.matmul(E_J, m[...,None])[...,0]
     E_hTJinvh = d/kappa + np.matmul(m[...,None,:], E_h[...,None])[...,0,0]
-    E_logdetJ = (np.sum(digamma((nu[:,None] - np.arange(d)[None,:])/2.), -1) \
+    E_logdetJ = (np.sum(digamma((nu[...,None] - np.arange(d)[None,...])/2.), -1) \
                  + d*np.log(2.)) - np.linalg.slogdet(S)[1]
 
     return pack_dense((-1./2 * E_J, E_h, -1./2 * E_hTJinvh, 1./2 * E_logdetJ))
@@ -28,11 +28,11 @@ def logZ(natparam):
     S, m, kappa, nu = natural_to_standard(natparam)
     d = m.shape[-1]
     return np.sum(d*nu/2.*np.log(2.) + multigammaln(nu/2., d)
-                  - nu/2.*np.linalg.slogdet(S)[1] + d/2.*np.log(kappa))
+                  - nu/2.*np.linalg.slogdet(S)[1] - d/2.*np.log(kappa))
 
 def natural_to_standard(natparam):
     A, b, kappa, nu = unpack_dense(natparam)
-    m = b / kappa[:,None]
+    m = b / kappa[...,None]
     S = A - outer(b, m)
     return S, m, kappa, nu
 

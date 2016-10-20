@@ -30,9 +30,6 @@ def make_encoder_decoder(recognize, decode):
 
 ### GMM prior on \theta = (\pi, {(\mu_k, \Sigma_k)}_{k=1}^K)
 
-# TODO make this init_pgm, return a run_inference function, flattened pgm param,
-# unflattener, maybe an initializer
-
 def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     def init_niw_natparam(N):
         nu, S, m, kappa = N+niw_conc, (N+niw_conc)*np.eye(N), np.zeros(N), niw_conc

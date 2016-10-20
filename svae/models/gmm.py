@@ -61,7 +61,7 @@ def prior_kl(global_natparam, prior_natparam):
 
 def local_meanfield(global_natparam, node_potentials):
     dirichlet_natparam, niw_natparams = global_natparam
-    node_potentials = gaussian.pack_dense(node_potentials)
+    node_potentials = gaussian.pack_dense(*node_potentials)
 
     # compute expected global parameters using current global factors
     label_global = dirichlet.expectedstats(dirichlet_natparam)

@@ -15,6 +15,9 @@ def rand_niw(n):
     nu = n + npr.uniform(1, 3)
     return standard_to_natural(S, m, kappa, nu)
 
+def rand_natparam(n, k):
+    return np.squeeze(np.stack([rand_niw(n) for _ in range(k)]))
+
 def test_param_conversion():
     npr.seed(0)
 
@@ -23,8 +26,8 @@ def test_param_conversion():
         assert np.allclose(natparam, natparam2)
 
     for _ in xrange(5):
-        n = npr.randint(1, 5)
-        yield check_params, rand_niw(n)
+        n, k = npr.randint(1, 5), npr.randint(1, 3)
+        yield check_params, rand_natparam(n, k)
 
 def test_expectedstats_autograd():
     npr.seed(0)
@@ -34,6 +37,6 @@ def test_expectedstats_autograd():
         E_stats2 = grad(logZ)(natparam)
         assert np.allclose(E_stats1, E_stats2)
 
-    for _ in xrange(10):
-        n = npr.randint(1, 5)
-        yield check_expectedstats, rand_niw(n)
+    for _ in xrange(20):
+        n, k = npr.randint(1, 5), npr.randint(1, 3)
+        yield check_expectedstats, rand_natparam(n, k)

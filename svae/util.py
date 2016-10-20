@@ -57,9 +57,7 @@ def monad_runner(bind):
 ### matrices
 
 T = lambda X: np.swapaxes(X, axis1=-1, axis2=-2)
-
-def symmetrize(A):
-    return (A + T(A))/2.
+symmetrize = lambda X: (X + T(X))/2.
 
 def solve_triangular(L, x, trans='N'):
     return spla.solve_triangular(L, x, lower=True, trans=trans)
@@ -78,6 +76,7 @@ def rot2D(theta):
     return np.array(
         [[np.cos(theta), -np.sin(theta)],
          [np.sin(theta), np.cos(theta)]])
+
 
 
 ### lists

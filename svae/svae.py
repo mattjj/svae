@@ -2,7 +2,7 @@ from __future__ import division, print_function
 from toolz import curry
 from autograd import value_and_grad as vgrad
 from autograd.util import flatten
-from util import split_into_batches, get_num_datapoints, scale
+from util import split_into_batches, get_num_datapoints
 
 callback = lambda i, val, params, grad: print('{}: {}'.format(i, val))
 flat = lambda struct: flatten(struct)[0]
@@ -30,7 +30,7 @@ def make_gradfun(run_inference, recognize, loglike, pgm_prior, data,
         val, (loglike_grad, recogn_grad) = vgrad(objective)((loglike_params, recogn_params))
         pgm_natgrad = -natgrad_scale / num_datapoints * \
             (flat(pgm_prior) + num_batches*flat(saved.stats) - flat(pgm_params))
-        grad = unflat(pgm_natgrad), scale(0., loglike_grad), scale(0., recogn_grad)  # TODO put back
+        grad = unflat(pgm_natgrad), loglike_grad, recogn_grad
         if callback: callback(i, val, params, grad)
         return grad
 

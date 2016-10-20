@@ -36,7 +36,7 @@ if __name__ == "__main__":
     data = make_pinwheel_data(0.3, 0.05, num_clusters, samples_per_cluster, 0.25)
 
     # set prior natparam to something sparsifying but otherwise generic
-    pgm_prior_params = init_pgm_param(K, N, alpha=0.5/K, niw_conc=0.5)
+    pgm_prior_params = init_pgm_param(K, N, alpha=0.1/K, niw_conc=0.5)
 
     # construct recognition and decoder networks and initialize them
     recognize, recogn_params = \

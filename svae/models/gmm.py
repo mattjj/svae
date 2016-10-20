@@ -30,6 +30,9 @@ def make_encoder_decoder(recognize, decode):
 
 ### GMM prior on \theta = (\pi, {(\mu_k, \Sigma_k)}_{k=1}^K)
 
+# TODO make this init_pgm, return a run_inference function, flattened pgm param,
+# unflattener, maybe an initializer
+
 def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
     def init_niw_natparam(N):
         nu, S, m, kappa = N+niw_conc, (N+niw_conc)*np.eye(N), np.zeros(N), niw_conc
@@ -161,12 +164,15 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
         else:
             ax.plot(ellipse[0], ellipse[1], alpha=alpha, linestyle='-', linewidth=2)
 
+    def get_component(niw_natparam):
+        neghalfJ, h, _, _ = gaussian.unpack_dense(niw_natparam)
+        J = -2 * neghalfJ
+        return np.linalg.solve(J, h), np.linalg.inv(J)
+
     def plot_components(ax, params):
         pgm_params, loglike_params, recogn_params = params
         dirichlet_natparams, niw_natparams = pgm_params
         normalize = lambda arr: np.minimum(1., arr / np.sum(arr) * num_clusters)
-        get_component = lambda arr: (-2*np.linalg.solve(arr[:2,:2], arr[:2,2]),
-                                     np.linalg.inv(-2*arr[:2, :2]))
         weights = normalize(np.exp(dirichlet.expectedstats(dirichlet_natparams)))
         components = map(get_component, niw.expectedstats(niw_natparams))
         lines = repeat(None) if isinstance(ax, plt.Axes) else ax

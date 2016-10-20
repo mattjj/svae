@@ -36,7 +36,7 @@ if __name__ == "__main__":
     data = make_pinwheel_data(0.3, 0.05, num_clusters, samples_per_cluster, 0.25)
 
     # set prior natparam to something sparsifying but otherwise generic
-    pgm_prior_params = init_pgm_param(K, N, alpha=0.1/K, niw_conc=0.5)
+    pgm_prior_params = init_pgm_param(K, N, alpha=0.5/K, niw_conc=0.5)
 
     # construct recognition and decoder networks and initialize them
     recognize, recogn_params = \
@@ -46,7 +46,7 @@ if __name__ == "__main__":
     loglike = make_loglike(decode)
 
     # initialize gmm parameters
-    pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=1., random_scale=1.)
+    pgm_params = init_pgm_param(K, N, alpha=1., niw_conc=1., random_scale=3.)
     params = pgm_params, loglike_params, recogn_params
 
     # set up encoder/decoder and plotting
@@ -57,5 +57,5 @@ if __name__ == "__main__":
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)
 
     # optimize
-    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e2, callback=plot),
+    params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
                  params, num_iters=1000, step_size=1e-2)

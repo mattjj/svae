@@ -5,7 +5,7 @@ from autograd import grad
 
 from svae.distributions.niw import logZ, expectedstats, \
     standard_to_natural, natural_to_standard
-from test_util import rand_psd
+from svae.util import rand_psd
 
 
 def rand_niw(n):

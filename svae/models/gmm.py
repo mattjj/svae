@@ -9,6 +9,8 @@ from svae.util import unbox, getval, tensordot, flat, normalize
 from svae.distributions import dirichlet, categorical, niw, gaussian
 
 
+### handy wrapper to handle flattening/unflattening pgm parameters
+
 def pgm_functions(K, N):
     _, unflatten = flatten(init_pgm_param(K, N))
 

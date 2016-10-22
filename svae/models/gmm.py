@@ -1,11 +1,35 @@
 from __future__ import division
 import autograd.numpy as np
 import autograd.numpy.random as npr
+from autograd.util import flatten
 from itertools import repeat
 from functools import partial
 
 from svae.util import unbox, getval, tensordot, flat, normalize
 from svae.distributions import dirichlet, categorical, niw, gaussian
+
+
+def pgm_functions(K, N):
+    _, unflatten = flatten(init_pgm_param(K, N))
+
+    def _run_inference(prior_natparam, global_natparam, nn_potentials, num_samples):
+        samples, stats, global_kl, local_kl = \
+            run_inference(unflatten(prior_natparam), unflatten(global_natparam),
+                          nn_potentials, num_samples)
+        return samples, flat(stats), global_kl, local_kl
+
+    def _init_pgm_param(alpha, niw_conc, random_scale):
+        return flat(init_pgm_param(K, N, alpha, niw_conc, random_scale))
+
+    def _make_encoder_decoder(recognize, decode):
+        encode, decode = make_encoder_decoder(recognize, decode)
+
+        def _encode(data, natparam, recogn_params):
+            return encode(data, unflatten(natparam), recogn_params)
+
+        return _encode, decode
+
+    return _init_pgm_param, _run_inference, _make_encoder_decoder, unflatten
 
 ### inference functions for the SVAE interface
 
@@ -30,10 +54,7 @@ def make_encoder_decoder(recognize, decode):
 
 ### GMM prior on \theta = (\pi, {(\mu_k, \Sigma_k)}_{k=1}^K)
 
-# TODO make this init_pgm, return a run_inference function, flattened pgm param,
-# unflattener, maybe an initializer
-
-def init_pgm_param(K, N, alpha, niw_conc=10., random_scale=0.):
+def init_pgm_param(K, N, alpha=1., niw_conc=10., random_scale=0.):
     def init_niw_natparam(N):
         nu, S, m, kappa = N+niw_conc, (N+niw_conc)*np.eye(N), np.zeros(N), niw_conc
         m = m + random_scale * npr.randn(*m.shape)

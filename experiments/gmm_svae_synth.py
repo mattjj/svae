@@ -51,7 +51,7 @@ if __name__ == "__main__":
 
     # set up encoder/decoder and plotting
     encode_mean, decode_mean = make_encoder_decoder(recognize, decode)
-    plot = make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every=5)
+    plot = make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every=100)
 
     # instantiate svae gradient function
     gradfun = make_gradfun(run_inference, recognize, loglike, pgm_prior_params, data)

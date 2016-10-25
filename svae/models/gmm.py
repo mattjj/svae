@@ -176,7 +176,7 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
 
     def plot(i, val, params, grad):
         print('{}: {}'.format(i, val))
-        if True or (i % plot_every) == (-1 % plot_every):
+        if (i % plot_every) == (-1 % plot_every):
             plot_encoded_means(latent_axis.lines[0], params)
             plot_components(latent_axis.lines[1:], params)
             plt.pause(0.1)

@@ -58,4 +58,4 @@ if __name__ == "__main__":
 
     # optimize
     params = sgd(gradfun(batch_size=50, num_samples=1, natgrad_scale=1e3, callback=plot),
-                 params, num_iters=1000, step_size=1e-2)
+                 params, num_iters=1000, step_size=1e-2, mass=0.)

@@ -4,7 +4,7 @@ import autograd.numpy.random as npr
 from itertools import repeat
 from functools import partial
 
-from svae.util import unbox, getval, tensordot, flat, normalize
+from svae.util import unbox, getval, flat, normalize
 from svae.distributions import dirichlet, categorical, niw, gaussian
 
 ### inference functions for the SVAE interface
@@ -108,14 +108,14 @@ def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
     global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
     natparam = node_potentials + global_potentials
     stats = gaussian.expectedstats(natparam)
-    kl = tensordot(node_potentials, stats, 3) - gaussian.logZ(natparam)
+    kl = np.tensordot(node_potentials, stats, 3) - gaussian.logZ(natparam)
     return natparam, stats, kl
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
-    node_potentials = tensordot(gaussian_stats, gaussian_globals, 2)
+    node_potentials = np.tensordot(gaussian_stats, gaussian_globals, [[1,2], [1,2]])
     natparam = node_potentials + label_global
     stats = categorical.expectedstats(natparam)
-    kl = tensordot(stats, node_potentials) - categorical.logZ(natparam)
+    kl = np.tensordot(stats, node_potentials) - categorical.logZ(natparam)
     return natparam, stats, kl
 
 def initialize_meanfield(label_global, node_potentials):

@@ -5,7 +5,7 @@ from autograd import grad
 
 from svae.distributions.gaussian import logZ, expectedstats, \
     pack_dense, unpack_dense
-from svae.util import rand_psd
+from test_util import rand_psd
 
 
 def rand_gaussian(n):

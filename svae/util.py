@@ -8,6 +8,9 @@ import operator
 from functools import partial
 from toolz import curry
 
+from autograd_linalg import cholesky, solve_triangular, \
+    solve_posdef_from_cholesky, inv_posdef_from_cholesky
+
 # autograd internals
 from autograd.container_types import TupleNode, ListNode
 from autograd.core import getval, primitive
@@ -35,7 +38,8 @@ isarray = lambda x: hasattr(x, 'ndim')
 flat = lambda x: flatten(x)[0]
 partial_flat = lambda a, axes: np.reshape(a, a.shape[:-axes] + (-1,))
 tensordot = lambda a, b, axes=2: np.dot(partial_flat(a, axes), partial_flat(b, axes).T)
-outer = lambda x, y: x[...,:,None] * y[...,None,:]
+outer = lambda x, y: np.einsum('...i,...j->...ij', x, y)
+inner = lambda x, y: np.einsum('...i,...i->...', x, y)
 
 ### functions and monads
 
@@ -58,15 +62,8 @@ def monad_runner(bind):
 
 T = lambda X: np.swapaxes(X, axis1=-1, axis2=-2)
 symmetrize = lambda X: (X + T(X))/2.
-
-def solve_triangular(L, x, trans='N'):
-    return spla.solve_triangular(L, x, lower=True, trans=trans)
-
-def solve_posdef_from_cholesky(L, x):
-    return solve_triangular(L, solve_triangular(L, x), 'T')
-
-def solve_symmetric(A, b):
-    return np.linalg.solve(symmetrize(A), b)
+solve_tri = lambda L, x, trans='N': solve_triangular(L, x, trans=trans, lower=True)
+solve_symmetric = lambda A, b: np.linalg.solve(symmetrize(A), b)
 
 def rand_psd(n):
     A = npr.randn(n, n)
@@ -76,7 +73,6 @@ def rot2D(theta):
     return np.array(
         [[np.cos(theta), -np.sin(theta)],
          [np.sin(theta), np.cos(theta)]])
-
 
 
 ### lists
@@ -126,6 +122,8 @@ def split_into_batches(data, seq_len, num_seqs=None, permute=True):
 
 
 ### basic math on (nested) tuples
+
+# TODO I want to remove all this and rely on flatten instead
 
 istuple = lambda x: isinstance(x, (tuple, TupleNode, list, ListNode))
 ensuretuple = lambda x: x if istuple(x) else (x,)

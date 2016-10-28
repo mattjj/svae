@@ -2,6 +2,7 @@ import numpy as np
 import autograd.numpy as anp
 from autograd.core import primitive
 from autograd.scipy.linalg import _flip
+from functools import partial
 
 import cython_linalg as cyla
 from util import T, symm, C
@@ -41,3 +42,19 @@ phi = lambda X: anp.tril(X) / (1. + anp.eye(X.shape[-1]))
 
 cholesky = primitive(np.linalg.cholesky)
 cholesky.defgrad(lambda L, A: lambda g: symm(solve_conj(L, phi(anp.matmul(T(L), g)))))
+
+
+### operations on cholesky factors
+
+solve_tri = partial(solve_triangular, lower=True)
+solve_posdef_from_cholesky = lambda L, x: solve_tri(L, solve_tri(L, x), trans='T')
+
+@primitive
+def inv_posdef_from_cholesky(L, lower=True):
+    flat_L = np.reshape(L, (-1,) + L.shape[-2:])
+    return np.reshape(cyla.inv_posdef_from_cholesky(C(flat_L), lower), L.shape)
+
+square_grad = lambda X: lambda g: anp.matmul(g, X) + anp.matmul(T(g), X)
+sym_inv_grad = lambda Xinv: lambda g: -anp.matmul(Xinv, anp.matmul(g, Xinv))
+inv_posdef_from_cholesky.defgrad(
+    lambda LLT_inv, L: lambda g: anp.tril(square_grad(L)(sym_inv_grad(LLT_inv)(g))))

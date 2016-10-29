@@ -13,11 +13,7 @@ from util import T, symm, C
 def solve_triangular(a, b, trans=0, lower=False, **kwargs):
     '''Just like scipy.linalg.solve_triangular on real arrays, except this
     function broadcasts over leading dimensions like np.linalg.solve.'''
-    flat_a = np.reshape(a, (-1,) + a.shape[-2:])
-    flat_b = np.reshape(b, flat_a.shape[:-1] + (-1,))
-    flat_result = cyla.solve_triangular(C(flat_a), C(flat_b),
-                                        trans=trans, lower=lower)
-    return np.reshape(flat_result, b.shape)
+    return cyla.solve_triangular(C(a), C(b), trans=trans, lower=lower)
 
 def make_grad_solve_triangular(ans, a, b, trans=0, lower=False, **kwargs):
     tri = anp.tril if (lower ^ (_flip(a, trans) == 'N')) else anp.triu
@@ -46,13 +42,12 @@ cholesky.defgrad(lambda L, A: lambda g: symm(solve_conj(L, phi(anp.matmul(T(L), 
 
 ### operations on cholesky factors
 
-solve_tri = partial(solve_triangular, lower=True)
+solve_tri = lambda L, x, trans='N': solve_triangular(L, x, trans=trans, lower=True)
 solve_posdef_from_cholesky = lambda L, x: solve_tri(L, solve_tri(L, x), trans='T')
 
 @primitive
 def inv_posdef_from_cholesky(L, lower=True):
-    flat_L = np.reshape(L, (-1,) + L.shape[-2:])
-    return np.reshape(cyla.inv_posdef_from_cholesky(C(flat_L), lower), L.shape)
+    return cyla.inv_posdef_from_cholesky(C(L), lower)
 
 square_grad = lambda X: lambda g: anp.matmul(g, X) + anp.matmul(T(g), X)
 sym_inv_grad = lambda Xinv: lambda g: -anp.matmul(Xinv, anp.matmul(g, Xinv))

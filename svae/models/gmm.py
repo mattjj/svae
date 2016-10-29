@@ -107,8 +107,8 @@ def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1
 def gaussian_meanfield(gaussian_globals, node_potentials, label_stats):
     global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
     natparam = node_potentials + global_potentials
-    stats = gaussian.expectedstats(natparam)
-    kl = np.tensordot(node_potentials, stats, 3) - gaussian.logZ(natparam)
+    stats, logZ = gaussian.inference(natparam)
+    kl = np.tensordot(node_potentials, stats, 3) - logZ
     return natparam, stats, kl
 
 def label_meanfield(label_global, gaussian_globals, gaussian_stats):
@@ -176,10 +176,10 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
 
     def plot(i, val, params, grad):
         print('{}: {}'.format(i, val))
-        if (i % plot_every) == (-1 % plot_every):
-            plot_encoded_means(latent_axis.lines[0], params)
-            plot_components(latent_axis.lines[1:], params)
-            plt.pause(0.1)
+        # if (i % plot_every) == (-1 % plot_every):
+        #     plot_encoded_means(latent_axis.lines[0], params)
+        #     plot_components(latent_axis.lines[1:], params)
+        #     plt.pause(0.1)
 
     plot_encoded_means(latent_axis, params)
     plot_components(latent_axis, params)

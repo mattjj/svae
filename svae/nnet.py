@@ -5,7 +5,7 @@ from autograd.util import make_tuple
 from toolz import curry
 from collections import defaultdict
 
-from util import compose, sigmoid, relu, identity, log1pexp, isarray
+from util import compose, sigmoid, relu, identity, softplus, isarray
 
 
 ### util
@@ -37,13 +37,13 @@ init_layer = lambda d_in, d_out, fn=init_layer_random(scale=1e-2): fn(d_in, d_ou
 def gaussian_mean(inputs, sigmoid_mean=False):
     mu_input, sigmasq_input = np.split(inputs, 2, axis=-1)
     mu = sigmoid(mu_input) if sigmoid_mean else mu_input
-    sigmasq = log1pexp(sigmasq_input)
+    sigmasq = softplus(sigmasq_input)
     return make_tuple(mu, sigmasq)
 
 @curry
 def gaussian_info(inputs):
     J_input, h = np.split(inputs, 2, axis=-1)
-    J = -1./2 * log1pexp(J_input)
+    J = -1./2 * softplus(J_input)
     return make_tuple(J, h)
 
 
@@ -95,11 +95,11 @@ def _gresnet(mlp_type, mlp, params, inputs):
     if mlp_type == 'mean':
         mu_mlp, sigmasq_mlp = mlp(mlp_params, inputs)
         mu_res = unravel(np.dot(ravel(inputs), W) + b1)
-        sigmasq_res = log1pexp(b2)
+        sigmasq_res = softplus(b2)
         return make_tuple(mu_mlp + mu_res, sigmasq_mlp + sigmasq_res)
     else:
         J_mlp, h_mlp = mlp(mlp_params, inputs)
-        J_res = -1./2 * log1pexp(b2)
+        J_res = -1./2 * softplus(b2)
         h_res = unravel(np.dot(ravel(inputs), W) + b1)
         return make_tuple(J_mlp + J_res, h_mlp + h_res)
 

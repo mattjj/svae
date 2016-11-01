@@ -1,16 +1,14 @@
 from __future__ import division
 import numpy as np
 import tensorflow as tf
-sigmoid, relu, tanh = tf.nn.sigmoid, tf.nn.relu, tf.nn.tanh
 from toolz import curry
 
 from util import compose, identity
 
-
-### util
-
-log1p = lambda x: tf.log(1. + tf.exp(x))
-identity = lambda x: x
+sigmoid = tf.nn.sigmoid
+relu = tf.nn.relu
+tanh = tf.nn.tanh
+softplus = tf.nn.softplus
 
 ### basic layer stuff
 
@@ -42,7 +40,7 @@ def init_mlp(m, layer_specs):
 def gaussian_mean(inputs, sigmoid_mean=False):
     mu_input, sigmasq_input = tf.split(tf.rank(inputs)-1, 2, inputs)
     mu = sigmoid(mu_input) if sigmoid_mean else mu_input
-    sigmasq = log1p(tf.exp(sigmasq_input))
+    sigmasq = softplus(sigmasq_input)
     return mu, sigmasq
 
 ### turn a gaussian_mean MLP into a log likelihood function
@@ -55,7 +53,7 @@ def _diagonal_gaussian_loglike(x, mu, sigmasq):
            -1./2*tf.reduce_sum(tf.log(sigmasq))) / num_samples
 
 def _make_ravelers(inputs):
-    in_shape = tf.shape(inputs)
+    in_shape = list(map(int, inputs.get_shape()))  # static shape info
     ravel = lambda x: tf.reshape(x, (-1, in_shape[2]))
     unravel = lambda x: tf.reshape(x, (in_shape[0], in_shape[1], -1))
     return ravel, unravel

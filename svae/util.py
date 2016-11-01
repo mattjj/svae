@@ -18,8 +18,7 @@ from autograd.core import getval, primitive
 identity = lambda x: x
 sigmoid = lambda x: 1. / (1. + np.exp(-x))
 relu = lambda x: np.maximum(x, 0.)
-log1pexp = primitive(lambda x: np.log1p(np.exp(x)))
-log1pexp.defgrad(lambda ans, x: lambda g: g / (1 + np.exp(-x)))
+softplus = partial(np.logaddexp, 0.)
 normalize = lambda x: x / np.sum(x, axis=-1, keepdims=True)
 softmax = lambda x: normalize(np.exp(x - np.max(x, axis=-1, keepdims=True)))
 

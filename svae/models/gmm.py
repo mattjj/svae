@@ -76,6 +76,10 @@ def local_meanfield(global_natparam, node_potentials):
     label_natparam, label_stats, label_kl = \
         label_meanfield(label_global, gaussian_globals, gaussian_stats)
 
+    global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
+    gaussian_kl_2 = np.tensordot(gaussian_natparam - global_potentials, gaussian_stats, 3) \
+        - gaussian.logZ(gaussian_natparam)
+
     # collect sufficient statistics for gmm prior (sum across conditional iid)
     dirichlet_stats = np.sum(label_stats, 0)
     niw_stats = np.tensordot(label_stats, gaussian_stats, [0, 0])
@@ -87,7 +91,7 @@ def local_meanfield(global_natparam, node_potentials):
 
     return local_stats, prior_stats, natparam, kl
 
-def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1e-3, max_iter=100):
+def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1e-5, max_iter=100):
     kl = np.inf
     label_stats = initialize_meanfield(label_global, node_potentials)
     for i in xrange(max_iter):
@@ -95,6 +99,11 @@ def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1
             gaussian_meanfield(gaussian_globals, node_potentials, label_stats)
         label_natparam, label_stats, label_kl = \
             label_meanfield(label_global, gaussian_globals, gaussian_stats)
+
+        # recompute linear term of gaussian_kl with new label_stats b/c labels were updated
+        global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
+        gaussian_kl = np.tensordot(gaussian_natparam - global_potentials, gaussian_stats, 3) \
+            - gaussian.logZ(gaussian_natparam)
 
         kl, prev_kl = label_kl + gaussian_kl, kl
         if abs(kl - prev_kl) < tol:

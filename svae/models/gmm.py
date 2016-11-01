@@ -100,7 +100,7 @@ def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1
         label_natparam, label_stats, label_kl = \
             label_meanfield(label_global, gaussian_globals, gaussian_stats)
 
-        # recompute gaussian_kl linear term with new label_stats b/c labels were updated
+        # recompute gaussian_kl linear term with new label_stats
         gaussian_global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
         linear_difference = gaussian_natparam - gaussian_global_potentials - node_potentials
         gaussian_kl = gaussian_kl + np.tensordot(linear_difference, gaussian_stats, 3)

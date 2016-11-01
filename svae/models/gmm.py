@@ -91,7 +91,7 @@ def local_meanfield(global_natparam, node_potentials):
 
     return local_stats, prior_stats, natparam, kl
 
-def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1e-5, max_iter=100):
+def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1e-3, max_iter=100):
     kl = np.inf
     label_stats = initialize_meanfield(label_global, node_potentials)
     for i in xrange(max_iter):

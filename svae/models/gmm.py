@@ -76,6 +76,10 @@ def local_meanfield(global_natparam, node_potentials):
     label_natparam, label_stats, label_kl = \
         label_meanfield(label_global, gaussian_globals, gaussian_stats)
 
+    global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
+    gaussian_kl_2 = np.tensordot(gaussian_natparam - global_potentials, gaussian_stats, 3) \
+        - gaussian.logZ(gaussian_natparam)
+
     # collect sufficient statistics for gmm prior (sum across conditional iid)
     dirichlet_stats = np.sum(label_stats, 0)
     niw_stats = np.tensordot(label_stats, gaussian_stats, [0, 0])
@@ -95,6 +99,11 @@ def meanfield_fixed_point(label_global, gaussian_globals, node_potentials, tol=1
             gaussian_meanfield(gaussian_globals, node_potentials, label_stats)
         label_natparam, label_stats, label_kl = \
             label_meanfield(label_global, gaussian_globals, gaussian_stats)
+
+        # recompute gaussian_kl linear term with new label_stats b/c labels were updated
+        gaussian_global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
+        linear_difference = gaussian_natparam - gaussian_global_potentials - node_potentials
+        gaussian_kl = gaussian_kl + np.tensordot(linear_difference, gaussian_stats, 3)
 
         kl, prev_kl = label_kl + gaussian_kl, kl
         if abs(kl - prev_kl) < tol:
@@ -176,7 +185,7 @@ def make_plotter_2d(recognize, decode, data, num_clusters, params, plot_every):
 
     def plot(i, val, params, grad):
         print('{}: {}'.format(i, val))
-        if True or (i % plot_every) == (-1 % plot_every):
+        if (i % plot_every) == (-1 % plot_every):
             plot_encoded_means(latent_axis.lines[0], params)
             plot_components(latent_axis.lines[1:], params)
             plt.pause(0.1)

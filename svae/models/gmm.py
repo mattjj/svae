@@ -76,10 +76,6 @@ def local_meanfield(global_natparam, node_potentials):
     label_natparam, label_stats, label_kl = \
         label_meanfield(label_global, gaussian_globals, gaussian_stats)
 
-    global_potentials = np.tensordot(label_stats, gaussian_globals, [1, 0])
-    gaussian_kl_2 = np.tensordot(gaussian_natparam - global_potentials, gaussian_stats, 3) \
-        - gaussian.logZ(gaussian_natparam)
-
     # collect sufficient statistics for gmm prior (sum across conditional iid)
     dirichlet_stats = np.sum(label_stats, 0)
     niw_stats = np.tensordot(label_stats, gaussian_stats, [0, 0])

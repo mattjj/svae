@@ -1,5 +1,9 @@
 Code for [Composing graphical models with neural networks for structured representations and fast inference](http://arxiv.org/abs/1603.06277), a.k.a. structured variational autoencoders.
 
+**NOTE:** This code isn't yet compatible with a recent rewrite of autograd. To
+use an older, compatible version of autograd, clone
+[autograd](https://github.com/hips/autograd) and check out commit 0f026ab.
+
 
 ###Abstract
 
